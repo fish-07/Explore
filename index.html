@@ -10,9 +10,9 @@
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body {
-  height: 100%; background: #000;
+  height: 100%; background: #101010;
   font-family: -apple-system, 'SF Pro Display', sans-serif;
-  color: #fff; overflow: hidden;
+  color: #F0F0F0; overflow: hidden;
 }
 
 #map { position: absolute; top: 0; left: 0; right: 0; bottom: 148px; }
@@ -24,50 +24,51 @@ html, body {
 /* HUD */
 #hud {
   position: absolute; top: 14px; left: 14px; z-index: 500;
-  background: #000;
+  background: #101010;
   border: 1px solid rgba(255,255,255,0.10); border-radius: 12px;
   padding: 10px 14px; display: flex; gap: 14px; align-items: flex-start;
 }
 .stat { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 44px; }
-.stat-lbl { font-size: 10px; color: #606060; letter-spacing: 0.02em; }
-.stat-val { font-size: 15px; font-weight: 700; color: #fff; }
-.stat-val.good { color: #00c000; }
-.stat-val.warn { color: #ffc000; }
-.stat-val.bad  { color: #c00000; }
+.stat-lbl { font-size: 10px; color: #808080; letter-spacing: 0.02em; }
+.stat-val { font-size: 15px; font-weight: 700; color: #F0F0F0; }
+.stat-val.good { color: #00E080; }
+.stat-val.warn { color: #F0A000; }
+.stat-val.bad  { color: #E03020; }
 
-/* Follow button */
+/* Follow button — fixed width so Follow and Following are the same size */
 #follow-btn {
   position: absolute; top: 14px; right: 14px; z-index: 500;
   background: #202020;
   border: 1px solid rgba(255,255,255,0.20); border-radius: 10px;
-  padding: 9px 16px; font-size: 13px; font-weight: 600; color: #fff;
+  padding: 9px 0; width: 100px; text-align: center;
+  font-size: 13px; font-weight: 600; color: #F0F0F0;
   cursor: pointer; display: none;
 }
-#follow-btn.active { border-color: #00a0e0; background: #00a0e0; color: #fff; }
+#follow-btn.active { border-color: #00A0E0; background: #00A0E0; color: #F0F0F0; }
 
 /* Bottom bar */
 #bottom {
   position: absolute; bottom: 0; left: 0; right: 0; z-index: 500;
-  background: #000; border-top: 1px solid rgba(255,255,255,0.08);
+  background: #101010; border-top: 1px solid rgba(255,255,255,0.08);
   padding: 12px 14px 30px; display: flex; flex-direction: column; gap: 8px;
 }
 #main-btn {
   width: 100%; padding: 17px; border: none; border-radius: 10px;
   font-size: 16px; font-weight: 700; cursor: pointer;
-  background: #00a0e0; color: #fff; transition: background 0.15s, opacity 0.15s;
+  background: #00A0E0; color: #F0F0F0; transition: background 0.15s, opacity 0.15s;
 }
-#main-btn.tracking { background: #c00000; color: #fff; }
+#main-btn.tracking { background: #E03020; color: #F0F0F0; }
 #main-btn:disabled { opacity: 0.35; cursor: default; }
 
 #sec-row { display: flex; gap: 8px; }
 .sec-btn {
   flex: 1; padding: 13px 0; background: #202020;
   border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
-  font-size: 14px; font-weight: 600; color: #a0a0a0; cursor: pointer;
+  font-size: 14px; font-weight: 600; color: #A0A0A0; cursor: pointer;
   transition: all 0.15s; text-align: center;
 }
 .sec-btn:disabled { opacity: 0.30; cursor: default; }
-.sec-btn.active { background: #00a0e0; border-color: #00a0e0; color: #fff; }
+.sec-btn.active { background: #00A0E0; border-color: #00A0E0; color: #F0F0F0; }
 
 /* Menu overlay */
 #menu-overlay {
@@ -86,10 +87,10 @@ html, body {
 .menu-btn {
   width: 100%; padding: 16px; border: none; border-radius: 10px;
   font-size: 15px; font-weight: 600; cursor: pointer;
-  background: #202020; color: #d0d0d0; text-align: center; transition: background 0.12s;
+  background: #202020; color: #D0D0D0; text-align: center; transition: background 0.12s;
 }
-.menu-btn.danger { color: #c00000; }
-.menu-btn.back   { background: #00a0e0; color: #fff; }
+.menu-btn.danger { color: #E03020; }
+.menu-btn.back   { background: #00A0E0; color: #F0F0F0; }
 
 #map.route-entry { cursor: crosshair; }
 #map.point-edit  { cursor: pointer; }
@@ -98,7 +99,7 @@ html, body {
 #rotate-overlay {
   display: none;
   position: fixed; inset: 0; z-index: 99999;
-  background: #000;
+  background: #101010;
   align-items: center; justify-content: center;
   color: #606060; font-size: 16px; font-weight: 600;
 }
@@ -162,15 +163,22 @@ const HALF_FOG_RADIUS_M = 300;  // 50% fog out to this radius (m)
 const FOG_OUTER         = 0.90; // fog opacity beyond HALF_FOG_RADIUS_M
 const FOG_MID           = 0.50; // fog opacity between CLEAR_RADIUS_M and HALF_FOG_RADIUS_M
 const FOG_OUTER_EDITING = 0.75; // reduced outer fog during route entry or point editing
-const MIN_MOVE_M        = 20;   // minimum GPS displacement to record a new tracked point (m)
+const MIN_MOVE_M        = 25;   // minimum distance from any existing point to record a new GPS point (m)
 const MAX_ACCURACY_M    = 100;  // discard GPS fixes with error radius >= this (m)
-const NEW_ISLAND_GAP_M  = 200;  // start a new disconnected island if displacement exceeds this (m)
-const STORAGE_KEY       = 'explore_v3';
+const NEW_ISLAND_GAP_M  = 200;  // start a new disconnected island if GPS displacement exceeds this (m)
+const RDP_TOLERANCE_M   = 5;    // Ramer-Douglas-Peucker simplification threshold (m)
+const ROUTE_STEP_M      = 25;   // interpolation spacing for drawn routes (m)
+const DEFAULT_ZOOM      = 16;   // zoom level applied when Follow is enabled
+const STORAGE_KEY       = 'explore_v4';
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let islands          = [];    // Array<Array<{lat,lng}>>; each sub-array is a contiguous visited path
-let activeIslandIdx  = null;  // index of the island currently receiving GPS points
-let lastKnownPos     = null;  // {lat,lng} — most recent GPS fix (any accuracy); drives the blue dot
+// An island is an array of {lat, lng} points forming one contiguous path.
+// Drawn routes store only their user-tapped vertices; the fog renderer
+// connects them directly, so no interpolated filler points are stored.
+// GPS tracks are simplified via RDP when tracking stops.
+let islands          = [];    // Array<Array<{lat,lng}>>
+let activeIslandIdx  = null;  // island currently receiving GPS points
+let lastKnownPos     = null;  // most recent GPS fix (any accuracy) — drives the blue dot
 let trackingActive   = false;
 let gpsWatchId       = null;
 let followEnabled    = false;
@@ -180,8 +188,8 @@ let totalDist        = 0;
 // Route entry mode — user taps vertices to log a path retroactively
 let routeEntryActive = false;
 let routeVertices    = [];    // tapped vertices for the route being entered
-let routeMarkers     = [];    // Leaflet markers for each vertex
-let routePreviewLine = null;  // dashed polyline connecting vertices as a preview
+let routeMarkers     = [];    // Leaflet markers for each tapped vertex
+let routePreviewLine = null;  // dashed polyline preview
 
 // Point editing mode — user taps existing points to remove them
 let pointEditActive  = false;
@@ -197,9 +205,9 @@ let posMarker = null;
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
     const d = JSON.parse(raw);
-    if (d.segments) islands = d.segments; // legacy key
-    if (d.islands)  islands = d.islands;
-    if (d.metric !== undefined) metric = d.metric;
+    // Support legacy storage keys from earlier versions
+    islands   = d.islands || d.segments || [];
+    metric    = d.metric !== undefined ? d.metric : true;
     totalDist = computeTotalDist();
   } catch(e) {}
 })();
@@ -213,19 +221,8 @@ const map = L.map('map', { center: [40,-20], zoom: 3, zoomControl: false, attrib
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',    { maxZoom: 19 }).addTo(map);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', { maxZoom: 19, pane: 'shadowPane' }).addTo(map);
 
-map.on('dragstart', () => {
-  // Disable follow when user manually pans, unless locked
-  if (followEnabled) {
-    // Prevent panning while following — consume the event by immediately re-centering
-    // (Leaflet doesn't expose a way to cancel dragstart, so we re-lock on dragend instead)
-  }
-});
-map.on('drag', () => {
-  // Re-center continuously if following is on — effectively locks the map to position
-  if (followEnabled && lastKnownPos) {
-    map.setView([lastKnownPos.lat, lastKnownPos.lng], map.getZoom(), { animate: false });
-  }
-});
+// Allow free panning at all times; follow is maintained by re-centering on each GPS fix
+map.on('dragstart', () => { if (!routeEntryActive && !pointEditActive) setFollow(false); });
 map.on('move zoom resize viewreset', redrawFog);
 map.on('click', onMapClick);
 
@@ -249,14 +246,14 @@ function metersToPixels(lat, m) {
   return Math.abs(p2.y - p1.y);
 }
 
-// Build an offscreen mask canvas: opaque wherever visited paths are within radiusM
+// Build an offscreen mask: opaque wherever any island path falls within radiusM.
+// The GPS blue-dot position is treated as its own isolated single-point island.
 function buildRevealMask(w, h, radiusM) {
   const c = new OffscreenCanvas(w, h);
   const x = c.getContext('2d');
   x.fillStyle = x.strokeStyle = 'rgba(0,0,0,1)';
   x.lineJoin = 'round'; x.lineCap = 'round';
 
-  // Render all committed islands; the current GPS position is its own isolated dot
   const allIslands = lastKnownPos ? [...islands, [lastKnownPos]] : islands;
 
   for (const island of allIslands) {
@@ -279,13 +276,12 @@ function redrawFog() {
   resizeCanvas();
   const w = canvas.width, h = canvas.height;
 
-  const editing = routeEntryActive || pointEditActive;
-  const outerFogOpacity = editing ? FOG_OUTER_EDITING : FOG_OUTER;
+  const editing          = routeEntryActive || pointEditActive;
+  const outerFogOpacity  = editing ? FOG_OUTER_EDITING : FOG_OUTER;
 
   const f  = new OffscreenCanvas(w, h);
   const fc = f.getContext('2d');
 
-  // Fill entire canvas with outer fog
   fc.fillStyle = `rgba(14,14,14,${outerFogOpacity})`;
   fc.fillRect(0, 0, w, h);
 
@@ -294,7 +290,6 @@ function redrawFog() {
     const midMask   = buildRevealMask(w, h, HALF_FOG_RADIUS_M);
     const clearMask = buildRevealMask(w, h, CLEAR_RADIUS_M);
 
-    // Replace outer fog with mid fog within HALF_FOG_RADIUS_M
     const midFogLayer = new OffscreenCanvas(w, h);
     const mc = midFogLayer.getContext('2d');
     mc.drawImage(midMask, 0, 0);
@@ -307,13 +302,42 @@ function redrawFog() {
     fc.globalCompositeOperation = 'source-over';
     fc.drawImage(midFogLayer, 0, 0);
 
-    // Punch the inner corridor fully clear
     fc.globalCompositeOperation = 'destination-out';
     fc.drawImage(clearMask, 0, 0);
   }
 
   ctx.clearRect(0, 0, w, h);
   ctx.drawImage(f, 0, 0);
+}
+
+// ── Ramer-Douglas-Peucker simplification ──────────────────────────────────────
+// Removes points that deviate less than toleranceM from the straight line
+// between their neighbours. Runs once when a GPS session ends.
+// Time complexity: O(n log n) average, O(n²) worst case on pathological inputs.
+
+function perpDistM(pt, lineA, lineB) {
+  // Perpendicular distance in metres from pt to the line segment lineA→lineB
+  const dx = lineB.lat - lineA.lat;
+  const dy = lineB.lng - lineA.lng;
+  if (dx === 0 && dy === 0) return haversine(pt.lat, pt.lng, lineA.lat, lineA.lng);
+  const t  = ((pt.lat - lineA.lat) * dx + (pt.lng - lineA.lng) * dy) / (dx*dx + dy*dy);
+  const tc = Math.max(0, Math.min(1, t));
+  return haversine(pt.lat, pt.lng, lineA.lat + tc*dx, lineA.lng + tc*dy);
+}
+
+function rdpSimplify(pts, toleranceM) {
+  if (pts.length <= 2) return pts;
+  let maxDist = 0, maxIdx = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = perpDistM(pts[i], pts[0], pts[pts.length-1]);
+    if (d > maxDist) { maxDist = d; maxIdx = i; }
+  }
+  if (maxDist >= toleranceM) {
+    const left  = rdpSimplify(pts.slice(0, maxIdx + 1), toleranceM);
+    const right = rdpSimplify(pts.slice(maxIdx),        toleranceM);
+    return [...left.slice(0, -1), ...right];
+  }
+  return [pts[0], pts[pts.length-1]];
 }
 
 // ── GPS tracking ──────────────────────────────────────────────────────────────
@@ -323,14 +347,23 @@ function startTracking() {
   if (!navigator.geolocation) return;
   trackingActive  = true;
   activeIslandIdx = null;
-  followEnabled   = false; // follow is OFF by default when tracking starts
+  // Follow defaults to OFF; button is shown but not active
+  followEnabled   = false;
   updateUI();
+  // Explicitly sync button appearance so it can't appear active from a previous session
+  syncFollowButton();
   gpsWatchId = navigator.geolocation.watchPosition(onGpsPosition, onGpsError,
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
 }
 
 function stopTracking() {
   if (gpsWatchId != null) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
+
+  // RDP-simplify the island that was being recorded this session
+  if (activeIslandIdx !== null && islands[activeIslandIdx]) {
+    islands[activeIslandIdx] = rdpSimplify(islands[activeIslandIdx], RDP_TOLERANCE_M);
+  }
+
   trackingActive  = false;
   activeIslandIdx = null;
   followEnabled   = false;
@@ -338,7 +371,9 @@ function stopTracking() {
   if (posMarker) { map.removeLayer(posMarker); posMarker = null; }
   document.getElementById('s-acc-wrap').style.display = 'none';
   document.getElementById('follow-btn').style.display = 'none';
+  totalDist = computeTotalDist(); // recompute after simplification
   saveStorage();
+  updateStats();
   updateUI();
   redrawFog();
 }
@@ -346,41 +381,40 @@ function stopTracking() {
 function onGpsPosition(pos) {
   const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
 
-  // Update accuracy indicator on every fix
+  // Update accuracy indicator on every fix regardless of quality
   const accEl = document.getElementById('s-acc');
-  const accM  = Math.round(acc);
-  accEl.textContent = metric ? `±${accM} m` : `±${Math.round(acc * 3.281)} ft`;
+  accEl.textContent = metric ? `±${Math.round(acc)} m` : `±${Math.round(acc * 3.281)} ft`;
   accEl.className   = 'stat-val ' + (acc < 50 ? 'good' : acc < 100 ? 'warn' : 'bad');
   document.getElementById('s-acc-wrap').style.display = 'flex';
 
-  // Always update the blue dot regardless of accuracy
+  // Always move the blue dot
   lastKnownPos = { lat, lng };
   updateBlueDot(lat, lng);
 
-  // If following, re-center map at current zoom (preserving user's zoom level)
+  // Re-center if following (preserves current zoom level)
   if (followEnabled) {
     map.setView([lat, lng], map.getZoom(), { animate: true, duration: 0.5 });
   }
 
-  // Only record a revealed point if accuracy is sufficient
+  // Discard fix if accuracy is insufficient
   if (acc >= MAX_ACCURACY_M) return;
 
   if (activeIslandIdx === null) {
-    // No active island yet — start one
-    islands.push([{ lat, lng }]);
-    activeIslandIdx = islands.length - 1;
+    // Starting fresh: only place first point if not too close to any existing point
+    if (!tooCloseToExistingPoint(lat, lng)) {
+      islands.push([{ lat, lng }]);
+      activeIslandIdx = islands.length - 1;
+    }
   } else {
     const island = islands[activeIslandIdx];
     const prev   = island[island.length - 1];
     const dist   = haversine(prev.lat, prev.lng, lat, lng);
 
-    if (dist < MIN_MOVE_M) return; // hasn't moved far enough
-
-    // Check if new point is within MIN_MOVE_M of any already-recorded point
+    if (dist < MIN_MOVE_M) return;
     if (tooCloseToExistingPoint(lat, lng)) return;
 
     if (dist >= NEW_ISLAND_GAP_M) {
-      // Large gap (e.g. accuracy dropout while moving) — start a new island
+      // Likely an accuracy dropout while moving — start a new island
       islands.push([{ lat, lng }]);
       activeIslandIdx = islands.length - 1;
     } else {
@@ -394,6 +428,7 @@ function onGpsPosition(pos) {
   redrawFog();
 }
 
+// Returns true if (lat, lng) is within MIN_MOVE_M of any recorded point
 function tooCloseToExistingPoint(lat, lng) {
   for (const island of islands) {
     for (const pt of island) {
@@ -408,7 +443,7 @@ function onGpsError() { stopTracking(); }
 function updateBlueDot(lat, lng) {
   const icon = L.divIcon({
     className: '',
-    html: `<div style="width:14px;height:14px;border-radius:50%;background:#00a0e0;border:3px solid #fff;box-shadow:0 0 0 4px rgba(0,160,224,0.25)"></div>`,
+    html: `<div style="width:14px;height:14px;border-radius:50%;background:#00A0E0;border:3px solid #F0F0F0;box-shadow:0 0 0 4px rgba(0,160,224,0.25)"></div>`,
     iconAnchor: [7, 7],
   });
   if (posMarker) posMarker.setLatLng([lat, lng]);
@@ -416,6 +451,8 @@ function updateBlueDot(lat, lng) {
 }
 
 // ── Route entry mode ──────────────────────────────────────────────────────────
+// Stores only the user-tapped vertices. The fog renderer connects them directly,
+// so no interpolated filler points need to be stored. This keeps point count low.
 function drawBtnAction() {
   if (routeEntryActive) confirmRouteEntry();
   else if (pointEditActive) confirmPointEdit();
@@ -438,15 +475,21 @@ function startRouteEntry() {
 
 function confirmRouteEntry() {
   if (routeVertices.length > 0) {
-    // Interpolate between each pair of tapped vertices at 30m intervals
+    // Store only the tapped vertices — the renderer interpolates visually at draw time.
+    // For the proximity check on new GPS points we still need physical points, so we
+    // store interpolated points at ROUTE_STEP_M spacing. This keeps GPS tracking
+    // accurate while avoiding storing thousands of points for long drawn segments.
     const pts = [routeVertices[0]];
     for (let i = 1; i < routeVertices.length; i++) {
-      pts.push(...interpolate(routeVertices[i-1], routeVertices[i], 30));
+      const interp = interpolateSkipClose(routeVertices[i-1], routeVertices[i], ROUTE_STEP_M);
+      pts.push(...interp);
     }
-    islands.push(pts);
-    totalDist += islandLength(pts);
-    saveStorage();
-    updateStats();
+    if (pts.length > 0) {
+      islands.push(pts);
+      totalDist += islandLength(pts);
+      saveStorage();
+      updateStats();
+    }
   }
   cancelRouteEntry();
   redrawFog();
@@ -461,7 +504,7 @@ function undoRouteVertex() {
   if (routeVertices.length > 1) {
     routePreviewLine = L.polyline(
       routeVertices.map(p => [p.lat, p.lng]),
-      { color: '#00a0e0', weight: 2, opacity: 0.7, dashArray: '6 4' }
+      { color: '#00A0E0', weight: 2, opacity: 0.7, dashArray: '6 4' }
     ).addTo(map);
   }
   if (routeVertices.length === 0) cancelRouteEntry();
@@ -495,7 +538,7 @@ function renderPointEditMarkers() {
     island.forEach((pt, pi) => {
       const icon = L.divIcon({
         className: '',
-        html: `<div style="width:22px;height:22px;border-radius:50%;background:#00a0e0;border:3px solid #fff;box-shadow:0 0 8px rgba(0,160,224,0.6);cursor:pointer"></div>`,
+        html: `<div style="width:22px;height:22px;border-radius:50%;background:#00A0E0;border:3px solid #F0F0F0;box-shadow:0 0 8px rgba(0,160,224,0.6);cursor:pointer"></div>`,
         iconAnchor: [11, 11],
       });
       const marker = L.marker([pt.lat, pt.lng], { icon, zIndexOffset: 2000 }).addTo(map);
@@ -514,10 +557,8 @@ function removePoint(islandIdx, ptIdx) {
   const island = islands[islandIdx];
   if (!island) return;
 
-  // Save full island snapshot for undo
   pointEditUndo.push({ islandIdx, ptIdx, islandBefore: island.slice() });
 
-  // Removing a point splits its island into two sub-islands (before and after the point)
   const before = island.slice(0, ptIdx);
   const after  = island.slice(ptIdx + 1);
   const replacement = [];
@@ -537,7 +578,6 @@ function undoPointRemoval() {
   if (pointEditUndo.length === 0) { confirmPointEdit(); return; }
   const snap = pointEditUndo.pop();
 
-  // Determine how many replacement sub-islands were inserted during the removal
   const b = snap.islandBefore.slice(0, snap.ptIdx);
   const a = snap.islandBefore.slice(snap.ptIdx + 1);
   const insertedCount = (b.length > 0 ? 1 : 0) + (a.length > 0 ? 1 : 0);
@@ -560,7 +600,7 @@ function confirmPointEdit() {
   redrawFog();
 }
 
-// ── Map click handler ─────────────────────────────────────────────────────────
+// ── Map click ─────────────────────────────────────────────────────────────────
 function onMapClick(e) {
   if (!routeEntryActive) return;
   const pt = { lat: e.latlng.lat, lng: e.latlng.lng };
@@ -568,7 +608,7 @@ function onMapClick(e) {
 
   const icon = L.divIcon({
     className: '',
-    html: `<div style="width:18px;height:18px;border-radius:50%;background:#00a0e0;border:3px solid #fff;box-shadow:0 0 8px rgba(0,160,224,0.5)"></div>`,
+    html: `<div style="width:18px;height:18px;border-radius:50%;background:#00A0E0;border:3px solid #F0F0F0;box-shadow:0 0 8px rgba(0,160,224,0.5)"></div>`,
     iconAnchor: [9, 9],
   });
   routeMarkers.push(L.marker([pt.lat, pt.lng], { icon, zIndexOffset: 2000 }).addTo(map));
@@ -577,7 +617,7 @@ function onMapClick(e) {
   if (routeVertices.length > 1) {
     routePreviewLine = L.polyline(
       routeVertices.map(p => [p.lat, p.lng]),
-      { color: '#00a0e0', weight: 2, opacity: 0.7, dashArray: '6 4' }
+      { color: '#00A0E0', weight: 2, opacity: 0.7, dashArray: '6 4' }
     ).addTo(map);
   }
 }
@@ -598,7 +638,7 @@ function menuSave() {
   closeMenu();
   const a = Object.assign(document.createElement('a'), {
     href: URL.createObjectURL(new Blob(
-      [JSON.stringify({ version: 7, islands })],
+      [JSON.stringify({ version: 8, islands })],
       { type: 'application/json' }
     )),
     download: 'explore-data.json',
@@ -611,7 +651,6 @@ function menuLoad(e) {
   reader.onload = ev => {
     try {
       const d = JSON.parse(ev.target.result);
-      // Support legacy formats
       islands   = d.islands || d.segments || (d.trail ? [d.trail] : []);
       totalDist = computeTotalDist();
       updateStats(); saveStorage();
@@ -643,14 +682,18 @@ function menuClear() {
 }
 
 // ── Follow ────────────────────────────────────────────────────────────────────
+function syncFollowButton() {
+  const btn = document.getElementById('follow-btn');
+  btn.textContent = followEnabled ? 'Following' : 'Follow';
+  btn.classList.toggle('active', followEnabled);
+}
+
 function setFollow(val) {
   followEnabled = val;
-  const btn = document.getElementById('follow-btn');
-  btn.textContent = val ? 'Following' : 'Follow';
-  btn.classList.toggle('active', val);
+  syncFollowButton();
   if (val && lastKnownPos) {
-    // Immediately re-center at the current zoom level
-    map.setView([lastKnownPos.lat, lastKnownPos.lng], map.getZoom(),
+    // Jump to DEFAULT_ZOOM and center on current position
+    map.setView([lastKnownPos.lat, lastKnownPos.lng], DEFAULT_ZOOM,
       { animate: true, duration: 0.5 });
   }
 }
@@ -688,6 +731,8 @@ function updateUI() {
     drawBtn.classList.remove('active');
     followBtn.style.display = trackingActive ? 'block' : 'none';
   }
+  // Always sync button appearance through the dedicated function
+  syncFollowButton();
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
@@ -708,7 +753,6 @@ function islandLength(island) {
 }
 
 function computeArea() {
-  // Approximation: corridor area = π r² per endpoint cap + 2r × segment length per step
   const r = CLEAR_RADIUS_M;
   let area = 0;
   for (const island of islands) {
@@ -748,14 +792,17 @@ function haversine(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// Produce evenly-spaced interpolated points between two coordinates, every stepM metres
-function interpolate(a, b, stepM) {
+// Interpolate points every stepM metres between a and b,
+// skipping any point that falls within MIN_MOVE_M of an already-recorded point.
+function interpolateSkipClose(a, b, stepM) {
   const total = haversine(a.lat, a.lng, b.lat, b.lng);
   const steps = Math.max(1, Math.floor(total / stepM));
   const pts   = [];
   for (let i = 1; i <= steps; i++) {
-    const t = i / steps;
-    pts.push({ lat: a.lat + (b.lat-a.lat)*t, lng: a.lng + (b.lng-a.lng)*t });
+    const t   = i / steps;
+    const lat = a.lat + (b.lat - a.lat) * t;
+    const lng = a.lng + (b.lng - a.lng) * t;
+    if (!tooCloseToExistingPoint(lat, lng)) pts.push({ lat, lng });
   }
   return pts;
 }
