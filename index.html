@@ -4,8 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Hexploration">
+<meta name="theme-color" content="#101010">
 <title>Hexploration</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -16,23 +17,33 @@
     --text:    #fff;
     --accent:  #00a0e0;
     --danger:  #c00000;
+    --safe-t:  env(safe-area-inset-top, 0px);
     --safe-b:  env(safe-area-inset-bottom, 0px);
   }
-  html, body {
+  html {
+    /* Prevents the white flash / rubber-band reveal on iOS */
+    background: #101010;
+  }
+  body {
     width: 100%; height: 100%; overflow: hidden;
     background: var(--bg);
     font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
     color: var(--text);
     user-select: none; -webkit-user-select: none;
+    /* Push content down so status bar area is filled with our bg colour */
+    padding-top: var(--safe-t);
   }
   #map {
-    position: fixed; top: 0; left: 0; right: 0;
-    bottom: calc(var(--bar-h, 120px) + var(--safe-b));
+    position: fixed;
+    top: var(--safe-t);
+    left: 0; right: 0;
+    bottom: calc(var(--bar-h, 140px) + var(--safe-b));
   }
-  /* SVG fog — exactly covers the map area */
   #fog-svg {
-    position: fixed; top: 0; left: 0; right: 0;
-    bottom: calc(var(--bar-h, 120px) + var(--safe-b));
+    position: fixed;
+    top: var(--safe-t);
+    left: 0; right: 0;
+    bottom: calc(var(--bar-h, 140px) + var(--safe-b));
     pointer-events: none;
     z-index: 450;
     overflow: visible;
@@ -44,9 +55,9 @@
     background: var(--surface);
     border-top: 1px solid var(--muted);
     display: flex; flex-direction: column; align-items: center;
-    /* top padding + gap + button height + generous bottom clearance */
     padding: 12px 14px 0;
-    padding-bottom: max(24px, calc(var(--safe-b) + 8px));
+    /* Generous clearance above home indicator */
+    padding-bottom: max(36px, calc(var(--safe-b) + 16px));
     gap: 10px;
     z-index: 500;
   }
@@ -57,7 +68,7 @@
   }
   #btn-row { display: flex; gap: 10px; width: 100%; }
   .bar-btn {
-    flex: 1; height: 52px;
+    flex: 1; height: 60px;
     border: none; outline: none; border-radius: 14px;
     background: var(--muted); color: var(--text);
     font-size: 15px; font-weight: 600; cursor: pointer;
@@ -77,7 +88,7 @@
     background: var(--surface);
     border-radius: 22px 22px 0 0;
     padding: 14px 16px 0;
-    padding-bottom: max(28px, calc(var(--safe-b) + 12px));
+    padding-bottom: max(36px, calc(var(--safe-b) + 16px));
     display: flex; flex-direction: column; gap: 10px;
   }
   #menu-handle {
@@ -119,12 +130,19 @@
   }
   #confirm-cancel { background: var(--muted); color: var(--text); }
   #confirm-ok     { background: var(--danger); color: #fff; }
+
+  /* Leaflet attribution — keep it visible */
+  .leaflet-control-attribution {
+    background: rgba(16,16,16,0.7) !important;
+    color: #aaa !important;
+  }
+  .leaflet-control-attribution a { color: #00a0e0 !important; }
 </style>
 </head>
 <body>
 
 <div id="map"></div>
-<svg id="fog-svg" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"></svg>
+<svg id="fog-svg" xmlns="http://www.w3.org/2000/svg"></svg>
 
 <div id="bar">
   <div id="status-line">0 hexagons</div>
@@ -162,52 +180,31 @@
 'use strict';
 
 /* ═══════════════════════════════════════════════════════════
-   HEX MATH
+   HEX MATH  —  equirectangular grid
    ─────────────────────────────────────────────────────────
-   We want pointy-top hexagons that are equilateral on screen,
-   100 m corner-to-corner (circumradius R = 50 m).
+   The map uses L.CRS.EPSG4326 (equirectangular / Plate Carrée).
+   In this projection, x pixels ∝ longitude, y pixels ∝ latitude,
+   uniformly at all latitudes.  This means our hex grid defined
+   as (mx = lng * MPD, my = lat * MPD) maps perfectly to the
+   screen — hexes tile without overlap or gap anywhere on Earth.
 
-   KEY INSIGHT: All hex geometry is computed in PIXEL SPACE
-   at draw time using the map's current zoom.  This guarantees
-   equilateral hexes regardless of latitude or map projection.
-
-   For grid classification (ll2key) we work in a consistent
-   equirectangular metre plane with NO cosine correction —
-   both ll2key and ax2ll use the same simple formula, so
-   they are exact inverses:
-       mx = lng * MPD
-       my = lat * MPD
-   This means the "metres" are equirectangular degrees×MPD,
-   not true ground metres.  The grid is globally consistent
-   (same key always for the same location) and neighbours are
-   always correct.  At any given latitude the physical size
-   of a hex varies slightly, but the displayed hex is always
-   equilateral because corners are computed in pixel space.
-
-   Axial (pointy-top):
-       mx = R√3·(q + r/2)
-       my = R·1.5·r
+   Pointy-top axial:
+     mx = R√3·(q + r/2)    my = R·1.5·r
    Inverse:
-       r  = my·2/(3R)
-       q  = mx/(R√3) − r/2
+     r  = my·2/(3R)         q  = mx/(R√3) − r/2
+
+   R = 50 in "equirectangular metres" (= degrees × MPD).
+   This makes each hex ~100 m corner-to-corner at the equator
+   and the grid consistent everywhere.
 ═══════════════════════════════════════════════════════════ */
+const R_DEG = 50;
+const MPD   = 111320;
 
-const R_DEG = 50;        // "circumradius" in equirectangular-metre units
-const MPD   = 111320;    // metres per degree (used only for R_DEG scale)
-
-// ll → equirectangular "metres" (no cosine — consistent everywhere)
-function ll2m(lat, lng) {
-  return { mx: lng * MPD, my: lat * MPD };
-}
-
-// Fractional axial from metres
-function m2fax(mx, my) {
+function ll2m(lat, lng)  { return { mx: lng * MPD, my: lat * MPD }; }
+function m2fax(mx, my)   {
   const fr = my * 2 / (3 * R_DEG);
-  const fq = mx / (Math.sqrt(3) * R_DEG) - fr / 2;
-  return { fq, fr };
+  return { fq: mx / (Math.sqrt(3) * R_DEG) - fr / 2, fr };
 }
-
-// Cube-coordinate rounding
 function axRound(fq, fr) {
   const fs = -fq - fr;
   let q = Math.round(fq), r = Math.round(fr), s = Math.round(fs);
@@ -216,97 +213,93 @@ function axRound(fq, fr) {
   else if (dr > ds)            r = -q - s;
   return { q, r };
 }
-
-// LatLng → hex key  (consistent with ax2ll)
 function ll2key(lat, lng) {
-  const {mx,my} = ll2m(lat, lng);
-  const {fq,fr} = m2fax(mx, my);
-  const {q,r}   = axRound(fq, fr);
+  const {mx,my} = ll2m(lat,lng);
+  const {fq,fr} = m2fax(mx,my);
+  const {q,r}   = axRound(fq,fr);
   return `${q},${r}`;
 }
-
-// Axial → centre LatLng  (exact inverse of ll2key)
 function ax2ll(q, r) {
-  const mx = R_DEG * Math.sqrt(3) * (q + r / 2);
-  const my = R_DEG * 1.5 * r;
-  return { lat: my / MPD, lng: mx / MPD };
+  return { lat: (R_DEG*1.5*r) / MPD, lng: (R_DEG*Math.sqrt(3)*(q+r/2)) / MPD };
 }
 
 /* ─────────────────────────────────────────────────────────
    PIXEL-SPACE HEX CORNERS
-   Given a hex (q,r), compute the 6 corner pixel positions
-   directly, guaranteeing equilateral shape on screen.
-
-   Steps:
-   1. Convert hex centre to a Leaflet container pixel point.
-   2. Convert an adjacent hex centre to get the pixel distance
-      between centres → derive the circumradius in pixels.
-   3. Place 6 corners at circumradius distance, every 60°,
-      starting at 90° (top) for pointy-top orientation.
-
-   We cache the pixel-per-metre scale once per drawFog() call.
-═══════════════════════════════════════════════════════════ */
-let _pxPerEquiUnit = 1; // pixels per equirectangular-metre-unit, updated each draw
+   Because the map is equirectangular, pixels ∝ degrees in
+   both x and y uniformly.  We compute a single px/unit scale
+   factor and place corners at exactly that radius, producing
+   perfect equilateral hexagons at every zoom and latitude.
+───────────────────────────────────────────────────────── */
+let _pxPerUnit = 1;
 
 function updatePxScale() {
-  // Use two points 1 R_DEG unit apart in the my direction to get pixel scale.
-  // Pick the current map centre as reference to minimise Mercator distortion.
-  const c   = map.getCenter();
-  const p0  = map.latLngToContainerPoint(L.latLng(c.lat, c.lng));
-  const p1  = map.latLngToContainerPoint(L.latLng(c.lat + R_DEG / MPD, c.lng));
-  // Vertical pixel distance for R_DEG units
-  _pxPerEquiUnit = Math.abs(p1.y - p0.y) / R_DEG;
+  // Sample pixel distance for R_DEG units northward at map centre
+  const c  = map.getCenter();
+  const p0 = map.latLngToContainerPoint(L.latLng(c.lat, c.lng));
+  const p1 = map.latLngToContainerPoint(L.latLng(c.lat + R_DEG / MPD, c.lng));
+  _pxPerUnit = Math.abs(p1.y - p0.y) / R_DEG;
 }
 
-// Pixel circumradius (for drawing equilateral hexes on screen)
-function pxR() { return _pxPerEquiUnit * R_DEG; }
+function pxR() { return _pxPerUnit * R_DEG; }
 
-// Centre of hex (q,r) in container pixel coords
-function hexCentrePx(q, r) {
-  const {lat, lng} = ax2ll(q, r);
-  return map.latLngToContainerPoint(L.latLng(lat, lng));
-}
-
-// 6 corner pixel points for hex (q,r) — equilateral on screen
 function hexCornersPx(q, r) {
-  const c   = hexCentrePx(q, r);
+  const {lat,lng} = ax2ll(q,r);
+  const c   = map.latLngToContainerPoint(L.latLng(lat,lng));
   const rad = pxR();
   const pts = [];
   for (let i = 0; i < 6; i++) {
-    // Pointy-top: first corner at top (90°), then clockwise
-    const ang = Math.PI / 2 - i * (Math.PI / 3);
-    pts.push({ x: c.x + rad * Math.cos(ang), y: c.y - rad * Math.sin(ang) });
+    const ang = Math.PI/2 - i*(Math.PI/3); // pointy-top, first corner at top
+    pts.push({ x: c.x + rad*Math.cos(ang), y: c.y - rad*Math.sin(ang) });
   }
   return pts;
 }
 
-// Corner pixel points → SVG path string
 function pxToPd(pts) {
-  return 'M ' + pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ') + ' Z';
+  return 'M ' + pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ') + ' Z';
 }
 
-// Axial neighbours (pointy-top standard axial)
 function nbrs(q, r) {
   return [[q+1,r],[q-1,r],[q,r+1],[q,r-1],[q+1,r-1],[q-1,r+1]];
 }
-
-function hk(q, r) { return `${q},${r}`; }
-function parseKey(k) { const [q,r] = k.split(',').map(Number); return {q,r}; }
+function hk(q,r)      { return `${q},${r}`; }
+function parseKey(k)  { const [q,r]=k.split(',').map(Number); return {q,r}; }
 
 /* ═══════════════════════════════════════════════════════════
-   MAP
+   MAP  —  EPSG:4326 equirectangular
 ═══════════════════════════════════════════════════════════ */
 const map = L.map('map', {
-  center: [20, 0], zoom: 3,
-  zoomControl: false, attributionControl: true,
+  crs: L.CRS.EPSG4326,
+  center: [20, 0],
+  zoom: 3,
+  zoomControl: false,
+  attributionControl: true,
 });
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap contributors', maxZoom: 19,
-}).addTo(map);
 
+// ESRI World Imagery tiles in EPSG:4326
+// Zoom offset: EPSG:4326 zoom N ≈ Mercator zoom N-1 visually
+L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  {
+    attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
+    maxZoom: 18,
+    // EPSG:4326 needs tileSize 512 and zoomOffset to align correctly
+    tileSize: 512,
+    zoomOffset: -1,
+  }
+).addTo(map);
+
+/* Bar height → CSS var so map/svg bottom edge stays in sync */
 function syncBarHeight() {
   const h = document.getElementById('bar').getBoundingClientRect().height;
   document.documentElement.style.setProperty('--bar-h', h + 'px');
+}
+
+/* SVG pixel size must match its rendered CSS size exactly */
+function syncSvgSize() {
+  const el   = document.getElementById('fog-svg');
+  const rect = el.getBoundingClientRect();
+  el.setAttribute('width',  Math.ceil(rect.width));
+  el.setAttribute('height', Math.ceil(rect.height));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -324,112 +317,31 @@ let hasSnapped = false;
    STORAGE
 ═══════════════════════════════════════════════════════════ */
 const SK = 'hexploration_v1';
-function store() { try { localStorage.setItem(SK, JSON.stringify([...revealed])); } catch(e){} }
+function store() { try { localStorage.setItem(SK,JSON.stringify([...revealed])); } catch(e){} }
 function load()  { try { const d=localStorage.getItem(SK); if(d) revealed=new Set(JSON.parse(d)); } catch(e){} }
 load();
 
 /* ═══════════════════════════════════════════════════════════
    FOG SVG RENDERER
+   ─────────────────────────────────────────────────────────
+   Three non-overlapping layers, each hex covered by exactly one:
 
-   Opacity scheme (corrected for SVG compositing):
-   SVG draws layers additively on a transparent background.
-   Two opaque fills on the same pixel composite as:
-     final_alpha = 1 - (1-a1)*(1-a2)
-   
-   So we use a SINGLE evenodd path for the main fog at fogOp,
-   then OVERDRAW border hexes with a "lightening" fill that
-   brings them back to borderOp:
+   Layer A  fill-opacity=fogOp   world rect, evenodd holes = revealed ∪ borders
+            → "deep fog" everywhere except revealed and border hexes
 
-     overdraw_opacity = 1 - borderOp/fogOp
-       (so that fogOp × (1 - overdraw) = borderOp)
-   
-   But since both layers are the same colour (#101010) on a
-   transparent SVG over the map, what the user sees is:
-     map × (1 - fill_opacity) + fog_colour × fill_opacity
-   So fill_opacity IS the visual opacity directly.
+   Layer B  fill-opacity=borderOp  filled union of border hexes only
+            → border hexes at exactly borderOp
 
-   Correct approach: draw fog at fogOp (with revealed holes),
-   then for each border hex draw a "clearing" rect or hex
-   that composites correctly.  We do this by drawing border
-   hexes at opacity (fogOp - borderOp) BELOW the main fog
-   (in draw order), so the net effect stacks additively.
-
-   Actually the simplest correct method: draw the fog at
-   borderOp first (holes = revealed), then draw an extra
-   fog at (fogOp-borderOp) on top (holes = revealed+borders).
-   Compositing of two same-colour fills on a transparent bg:
-     result = 1 - (1-a1)*(1-a2) where a1=0.5, a2=0.45 → 0.725  ✗
-
-   The correct approach: use a SINGLE path per hex category
-   placed on a <g> with the right opacity.  SVG <g opacity>
-   applies to the group as a whole (not per-pixel additive):
-   
-   ┌ group opacity = fogOp ──────────────────────────────┐
-   │  path1: world rect fill=black, evenodd holes=revealed │
-   └─────────────────────────────────────────────────────┘
-   This gives fogOp everywhere except revealed (=0). ✓
-
-   For borders at borderOp: draw border hexes AFTER with
-   fill=black at exactly borderOp (they cover the fogOp layer
-   since they're drawn last — but the background already has
-   fogOp darkness, so drawing another fill adds MORE darkness).
-
-   The only correct SVG way to REDUCE opacity for borders:
-   Draw fog at fogOp (evenodd, holes=revealed).
-   Draw border hexes with fill=MAP_BG at (fogOp-borderOp)
-   — this "clears" some of the fog back, resulting in borderOp.
-   But map_bg is the map tiles, not a solid colour.
-
-   SOLUTION: Use mix-blend-mode or feComposite... or just use
-   a <g> with isolation:isolate and opacity on child elements.
-
-   SIMPLEST CORRECT SOLUTION:
-   • Draw one full-screen rect at fogOp with evenodd clip
-     (holes for revealed) — standard approach
-   • Draw border hexes with fill=bg at overdraw_a where:
-       overdraw_a = (fogOp - borderOp)
-     placed INSIDE a <g style="mix-blend-mode:destination-out">
-     … not reliable cross-browser.
-
-   ACTUALLY SIMPLEST: Just draw the border hexes at
-   fill-opacity=borderOp directly as separate elements AFTER
-   clearing them from the fog layer.  Use THREE layers:
-
-   Layer A (bottom): full rect at fogOp, holes = revealed ∪ borders
-     → only "deep fog" unrevealed hexes visible (at fogOp)
-   Layer B: full rect at borderOp, holes = revealed
-     → border hexes show at borderOp; deep fog gets borderOp added
-     BUT deep fog already shows through layer A at fogOp, and
-     now layer B adds more... that's additive not replacement.
-
-   THE CORRECT FINAL ANSWER:
-   Draw with a <canvas> using globalAlpha replacement drawing —
-   OR use the approach below which actually works in SVG:
-
-   Use a single SVG <rect> with fill=#101010 and opacity=fogOp,
-   clipped by a clipPath that excludes revealed hexes.
-   Then draw border hexes with fill=#101010 and opacity=borderOp,
-   with mix-blend-mode:normal (default) — but they sit ON TOP
-   of the fogOp rect, making them DARKER (fogOp + some more).
-
-   Actually: border hexes are NOT covered by the fog rect
-   (they're in the clip exclusion too for layer A), so we CAN
-   draw them at exactly borderOp. This works:
-
-   Layer A: fog rect at fogOp, clipPath excludes revealed AND borders
-   Layer B: border hex fills at borderOp each
-
-   Final result:
-     revealed hex: 0 (not covered by A, not covered by B) ✓
-     border hex:   0 (not in A) + borderOp (B) = borderOp ✓
-     other:        fogOp (A) + 0 (not in B) = fogOp ✓
+   revealed hexes: covered by neither → 0 opacity ✓
+   border hexes:   Layer A has a hole, Layer B fills them → borderOp ✓
+   other hexes:    Layer A covers them → fogOp ✓
 ═══════════════════════════════════════════════════════════ */
 const fogSvg = document.getElementById('fog-svg');
-const NS     = 'http://www.w3.org/2000/svg';
+const NS = 'http://www.w3.org/2000/svg';
 
-let svgFogPath    = null;  // Layer A: deep fog (holes = revealed ∪ borders)
-let svgBorderPath = null;  // Layer B: border hexes at borderOp
-let svgOutlines   = [];    // Stroke outlines for revealed+border hexes
+let svgFogPath    = null;
+let svgBorderPath = null;
+let svgOutlines   = [];
 let borderCache   = null;
 
 function getBorders() {
@@ -446,8 +358,8 @@ function getBorders() {
 }
 function invalidateBorders() { borderCache = null; }
 
-// Build an evenodd world-box path with holes for each key in holeSet
 const WORLD = 'M -99999,-99999 L 99999,-99999 L 99999,99999 L -99999,99999 Z ';
+
 function buildEvenOddPath(holeKeys) {
   let d = WORLD;
   for (const k of holeKeys) {
@@ -457,8 +369,7 @@ function buildEvenOddPath(holeKeys) {
   return d;
 }
 
-// Build a multi-hex fill path (no world box — just the hexes themselves)
-function buildHexFill(keys) {
+function buildHexUnion(keys) {
   let d = '';
   for (const k of keys) {
     const {q,r} = parseKey(k);
@@ -469,16 +380,16 @@ function buildHexFill(keys) {
 
 function ensureSvgElements() {
   if (!svgFogPath) {
-    svgFogPath = document.createElementNS(NS, 'path');
-    svgFogPath.setAttribute('fill-rule', 'evenodd');
-    svgFogPath.setAttribute('fill', '#101010');
-    svgFogPath.setAttribute('pointer-events', 'none');
+    svgFogPath = document.createElementNS(NS,'path');
+    svgFogPath.setAttribute('fill-rule','evenodd');
+    svgFogPath.setAttribute('fill','#101010');
+    svgFogPath.setAttribute('pointer-events','none');
     fogSvg.appendChild(svgFogPath);
   }
   if (!svgBorderPath) {
-    svgBorderPath = document.createElementNS(NS, 'path');
-    svgBorderPath.setAttribute('fill', '#101010');
-    svgBorderPath.setAttribute('pointer-events', 'none');
+    svgBorderPath = document.createElementNS(NS,'path');
+    svgBorderPath.setAttribute('fill','#101010');
+    svgBorderPath.setAttribute('pointer-events','none');
     fogSvg.appendChild(svgBorderPath);
   }
 }
@@ -486,94 +397,52 @@ function ensureSvgElements() {
 function syncOutlines(keys) {
   const arr = [...keys];
   while (svgOutlines.length < arr.length) {
-    const p = document.createElementNS(NS, 'path');
-    p.setAttribute('fill', 'none');
-    p.setAttribute('stroke', '#404040');
-    p.setAttribute('stroke-width', '0.8');
-    p.setAttribute('stroke-opacity', '0.7');
-    p.setAttribute('pointer-events', 'none');
+    const p = document.createElementNS(NS,'path');
+    p.setAttribute('fill','none');
+    p.setAttribute('stroke','#404040');
+    p.setAttribute('stroke-width','0.8');
+    p.setAttribute('stroke-opacity','0.7');
+    p.setAttribute('pointer-events','none');
     fogSvg.appendChild(p);
     svgOutlines.push(p);
   }
-  for (let i=0; i<arr.length; i++) {
+  for (let i=0;i<arr.length;i++) {
     const {q,r} = parseKey(arr[i]);
     svgOutlines[i].setAttribute('d', pxToPd(hexCornersPx(q,r)));
     svgOutlines[i].style.display = '';
   }
-  for (let i=arr.length; i<svgOutlines.length; i++) {
-    svgOutlines[i].style.display = 'none';
-  }
-}
-
-function syncSvgSize() {
-  const rect = fogSvg.getBoundingClientRect();
-  fogSvg.setAttribute('width',  Math.ceil(rect.width));
-  fogSvg.setAttribute('height', Math.ceil(rect.height));
+  for (let i=arr.length;i<svgOutlines.length;i++) svgOutlines[i].style.display='none';
 }
 
 function redrawFog() { invalidateBorders(); drawFog(); }
 
 function drawFog() {
   ensureSvgElements();
-  updatePxScale();   // update pixel-per-unit scale for this zoom/pan
+  updatePxScale();
 
   const fogOp    = selectMode ? 0.5 : 0.95;
   const borderOp = 0.5;
   const borders  = getBorders();
 
-  // Layer A: full fog at fogOp, holes = revealed ∪ borders
-  const holesA = new Set([...revealed, ...borders]);
   svgFogPath.setAttribute('fill-opacity', String(fogOp));
-  svgFogPath.setAttribute('d', buildEvenOddPath(holesA));
+  svgFogPath.setAttribute('d', buildEvenOddPath(new Set([...revealed,...borders])));
 
-  // Layer B: border hexes at exactly borderOp
   svgBorderPath.setAttribute('fill-opacity', String(borderOp));
-  svgBorderPath.setAttribute('d', buildHexFill(borders));
+  svgBorderPath.setAttribute('d', buildHexUnion(borders));
 
-  // Outlines
-  syncOutlines(new Set([...revealed, ...borders]));
-}
-
-/* ═══════════════════════════════════════════════════════════
-   SELECT-MODE TAP DETECTION
-
-   The fog SVG stays pointer-events:none so Leaflet always
-   receives all touch/mouse events for panning and zooming.
-   We add a click listener directly on the Leaflet map container
-   (NOT a blocking overlay div) which fires after Leaflet decides
-   it wasn't a drag.  Leaflet fires a 'click' event on the map
-   object itself for single taps — we listen to that.
-═══════════════════════════════════════════════════════════ */
-map.on('click', (e) => {
-  if (!selectMode) return;
-  const key = ll2key(e.latlng.lat, e.latlng.lng);
-  onHexClick(key);
-});
-
-/* ═══════════════════════════════════════════════════════════
-   VISIBLE HEX KEYS (for select mode awareness)
-═══════════════════════════════════════════════════════════ */
-function visibleHexKeys() {
-  const bounds = map.getBounds();
-  const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
-  const cs = [ll2m(sw.lat,sw.lng), ll2m(sw.lat,ne.lng), ll2m(ne.lat,sw.lng), ll2m(ne.lat,ne.lng)];
-  const mxMin = Math.min(...cs.map(c=>c.mx)), mxMax = Math.max(...cs.map(c=>c.mx));
-  const myMin = Math.min(...cs.map(c=>c.my)), myMax = Math.max(...cs.map(c=>c.my));
-  const rMin  = Math.floor(myMin / (R_DEG*1.5)) - 1;
-  const rMax  = Math.ceil (myMax / (R_DEG*1.5)) + 1;
-  const keys  = new Set();
-  for (let r=rMin; r<=rMax; r++) {
-    const qF0 = mxMin / (Math.sqrt(3)*R_DEG) - r/2;
-    const qF1 = mxMax / (Math.sqrt(3)*R_DEG) - r/2;
-    for (let q=Math.floor(qF0)-1; q<=Math.ceil(qF1)+1; q++) keys.add(hk(q,r));
-  }
-  return keys;
+  syncOutlines(new Set([...revealed,...borders]));
 }
 
 /* ═══════════════════════════════════════════════════════════
    MAP EVENTS
 ═══════════════════════════════════════════════════════════ */
 map.on('move zoom viewreset', drawFog);
+
+// Select-mode taps via Leaflet click (fired only after confirmed non-drag)
+map.on('click', (e) => {
+  if (!selectMode) return;
+  onHexClick(ll2key(e.latlng.lat, e.latlng.lng));
+});
 
 /* ═══════════════════════════════════════════════════════════
    HEX CLICK
@@ -602,12 +471,12 @@ const userIcon = L.divIcon({
 let userMarker=null, userCircle=null;
 
 function onPosUpdate(pos) {
-  const {latitude:lat, longitude:lng, accuracy:acc} = pos.coords;
-  userLL  = {lat,lng};
-  userAcc = acc;
+  const {latitude:lat,longitude:lng,accuracy:acc} = pos.coords;
+  userLL = {lat,lng}; userAcc = acc;
   if (!hasSnapped) {
     hasSnapped = true;
-    map.setView([lat,lng], 16, {animate:false});
+    // zoom 17 in EPSG:4326 ≈ zoom 16 in Mercator
+    map.setView([lat,lng], 17, {animate:false});
   }
   if (!userMarker) userMarker = L.marker([lat,lng],{icon:userIcon,zIndexOffset:1000}).addTo(map);
   else             userMarker.setLatLng([lat,lng]);
@@ -659,16 +528,16 @@ function updateStatus() {
 /* ═══════════════════════════════════════════════════════════
    BUTTONS
 ═══════════════════════════════════════════════════════════ */
-document.getElementById('btn-menu').addEventListener('click', ()=>{
+document.getElementById('btn-menu').addEventListener('click',()=>{
   document.getElementById('menu-overlay').classList.add('open');
 });
-document.getElementById('btn-loc').addEventListener('click', ()=>{
-  if (!trackingOn) {
+document.getElementById('btn-loc').addEventListener('click',()=>{
+  if (!trackingOn){
     if (!navigator.geolocation){alert('Geolocation not supported.');return;}
     startTracking();
   } else { stopTracking(); }
 });
-document.getElementById('btn-select').addEventListener('click', ()=>{
+document.getElementById('btn-select').addEventListener('click',()=>{
   selectMode = !selectMode;
   const btn = document.getElementById('btn-select');
   btn.textContent = selectMode ? 'Done' : 'Select';
@@ -677,22 +546,22 @@ document.getElementById('btn-select').addEventListener('click', ()=>{
 });
 
 function closeMenu(){ document.getElementById('menu-overlay').classList.remove('open'); }
-document.getElementById('menu-backdrop').addEventListener('click', closeMenu);
-document.getElementById('menu-back').addEventListener('click', closeMenu);
+document.getElementById('menu-backdrop').addEventListener('click',closeMenu);
+document.getElementById('menu-back').addEventListener('click',closeMenu);
 
-document.getElementById('menu-save').addEventListener('click', ()=>{
-  const blob = new Blob([JSON.stringify([...revealed])],{type:'application/json'});
-  const url  = URL.createObjectURL(blob);
-  const a    = Object.assign(document.createElement('a'),{
+document.getElementById('menu-save').addEventListener('click',()=>{
+  const blob=new Blob([JSON.stringify([...revealed])],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=Object.assign(document.createElement('a'),{
     href:url, download:`hexploration-${new Date().toISOString().slice(0,10)}.json`
   });
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url); closeMenu();
 });
-document.getElementById('menu-load').addEventListener('click', ()=>{
+document.getElementById('menu-load').addEventListener('click',()=>{
   stopTracking();
-  const inp = Object.assign(document.createElement('input'),{type:'file',accept:'.json,application/json'});
-  inp.addEventListener('change', ()=>{
+  const inp=Object.assign(document.createElement('input'),{type:'file',accept:'.json,application/json'});
+  inp.addEventListener('change',()=>{
     const f=inp.files[0]; if(!f) return;
     const fr=new FileReader();
     fr.onload=e=>{
@@ -706,13 +575,13 @@ document.getElementById('menu-load').addEventListener('click', ()=>{
   });
   inp.click();
 });
-document.getElementById('menu-clear').addEventListener('click', ()=>{
+document.getElementById('menu-clear').addEventListener('click',()=>{
   document.getElementById('confirm-overlay').classList.add('open');
 });
-document.getElementById('confirm-cancel').addEventListener('click', ()=>{
+document.getElementById('confirm-cancel').addEventListener('click',()=>{
   document.getElementById('confirm-overlay').classList.remove('open');
 });
-document.getElementById('confirm-ok').addEventListener('click', ()=>{
+document.getElementById('confirm-ok').addEventListener('click',()=>{
   stopTracking(); revealed.clear(); store(); redrawFog(); updateStatus();
   document.getElementById('confirm-overlay').classList.remove('open');
   closeMenu();
@@ -723,7 +592,7 @@ document.getElementById('confirm-ok').addEventListener('click', ()=>{
 ═══════════════════════════════════════════════════════════ */
 syncBarHeight();
 syncSvgSize();
-window.addEventListener('resize', ()=>{ syncBarHeight(); syncSvgSize(); drawFog(); });
+window.addEventListener('resize',()=>{ syncBarHeight(); syncSvgSize(); drawFog(); });
 updateStatus();
 drawFog();
 </script>
