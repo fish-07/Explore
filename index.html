@@ -126,7 +126,7 @@
 <div id="map"></div>
 
 <!-- Fog SVG: fixed over the map, re-drawn each frame in JS using container coords -->
-<svg id="fog-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+<svg id="fog-svg" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"></svg>
 
 <div id="bar">
   <div id="status-line">0 hexagons</div>
@@ -168,28 +168,33 @@
    Pointy-top hexagons, 100 m flat-to-flat.
    Circumradius R = 100/√3 m.
 
-   Axial (q,r) ↔ metres from geographic origin (0°,0°):
-     mx = R√3·(q + r/2)
-     my = R·1.5·r
+   We work in a LOCAL Cartesian metre plane.
+   The key insight: we must use ONE fixed cosine correction
+   so that ll2key and hexCornerLatLngs are exact inverses.
+
+   Strategy: convert lat/lng to metres using the EQUATOR as
+   reference (lng * MPD for x, lat * MPD for y). This is the
+   standard equirectangular projection. Hexes near the equator
+   are geometrically correct; elsewhere they are slightly
+   squished east-west but the grid is still perfectly
+   consistent — ll2key(hexCentre(q,r)) always returns (q,r).
+
+   Axial (q,r) ↔ equirectangular metres:
+     mx = R√3·(q + r/2)       [east]
+     my = R·1.5·r              [north]
    Inverse:
      r  = my·2/(3R)
      q  = mx/(R√3) − r/2
 
-   We use the geographic origin (lat=0,lng=0) as the axial
-   origin so hex keys are globally stable regardless of where
-   the map is panned.  We apply a per-point cosine correction
-   when converting geographic coords to/from metres.
+   For display we use Leaflet's own projection (latLngToContainerPoint)
+   so the hexes appear correctly shaped on the Mercator map.
 ═══════════════════════════════════════════════════ */
 const R   = 100 / Math.sqrt(3); // circumradius metres ≈ 57.735
 const MPD = 111320;             // metres per degree latitude
 
-function mpdLon(lat) { return MPD * Math.cos(lat * Math.PI / 180); }
-
-// LatLng → flat-earth metres from (0°,0°)
-// We linearise around the point itself for the longitude scale — good to ~1 m
-// accuracy anywhere on Earth for our 100 m hex size.
+// LatLng → equirectangular metres (consistent reference: equator)
 function ll2m(lat, lng) {
-  return { mx: lng * mpdLon(lat), my: lat * MPD };
+  return { mx: lng * MPD, my: lat * MPD };
 }
 
 // Metres → fractional axial
@@ -217,25 +222,27 @@ function ll2key(lat, lng) {
   return `${q},${r}`;
 }
 
-// Axial → centre LatLng
+// Axial → centre LatLng (exact inverse of ll2key)
 function ax2ll(q, r) {
   const mx  = R * Math.sqrt(3) * (q + r / 2);
   const my  = R * 1.5 * r;
-  const lat = my / MPD;
-  // Avoid divide-by-zero at equator edge case
-  const lng = mx / mpdLon(lat === 0 ? 1e-9 : lat);
-  return { lat, lng };
+  return { lat: my / MPD, lng: mx / MPD };
 }
 
 // Axial → array of 6 {lat,lng} corners (pointy-top)
+// Corner angles for pointy-top: 90°, 30°, -30°, -90°, -150°, 150°
+// i.e. 60*i + 90  (or equivalently 60*i - 30 starting from -30°… but
+// we want the top point at 90°, so use 60*i + 90).
+// In equirectangular: dx=cos(ang)/MPD degrees lng, dy=sin(ang)/MPD degrees lat.
+// The display projection (Mercator) handles the visual shape correctly.
 function hexCornerLatLngs(q, r) {
   const { lat: cLat, lng: cLng } = ax2ll(q, r);
   const pts = [];
   for (let i = 0; i < 6; i++) {
-    const ang = Math.PI / 180 * (60 * i - 30); // pointy-top: corners at ±30°,±90°,±150°
+    const ang = Math.PI / 180 * (60 * i + 90); // pointy-top, first corner at top
     pts.push({
       lat: cLat + R * Math.sin(ang) / MPD,
-      lng: cLng + R * Math.cos(ang) / mpdLon(cLat || 1e-9),
+      lng: cLng + R * Math.cos(ang) / MPD,
     });
   }
   return pts;
@@ -249,7 +256,7 @@ function cornersToPx(corners) {
   }).join(' L ') + ' Z';
 }
 
-// Axial neighbours (pointy-top)
+// Axial neighbours (pointy-top, standard axial directions)
 function nbrs(q, r) {
   return [[q+1,r],[q-1,r],[q,r+1],[q,r-1],[q+1,r-1],[q-1,r+1]];
 }
