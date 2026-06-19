@@ -19,6 +19,8 @@
     --danger:  #c00000;
     --safe-t:  env(safe-area-inset-top, 0px);
     --safe-b:  env(safe-area-inset-bottom, 0px);
+    --safe-l:  env(safe-area-inset-left, 0px);
+    --safe-r:  env(safe-area-inset-right, 0px);
   }
   html { background: #101010; }
   body {
@@ -27,16 +29,19 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
     color: var(--text);
     user-select: none; -webkit-user-select: none;
-    padding-top: var(--safe-t);
   }
   #map {
     position: fixed;
-    top: var(--safe-t); left: 0; right: 0;
+    top: var(--safe-t);
+    left: var(--safe-l);
+    right: var(--safe-r);
     bottom: calc(var(--bar-h, 140px) + var(--safe-b));
   }
   #fog-svg {
     position: fixed;
-    top: var(--safe-t); left: 0; right: 0;
+    top: var(--safe-t);
+    left: var(--safe-l);
+    right: var(--safe-r);
     bottom: calc(var(--bar-h, 140px) + var(--safe-b));
     pointer-events: none;
     z-index: 450;
@@ -49,7 +54,7 @@
     background: var(--surface);
     border-top: 1px solid var(--muted);
     display: flex; flex-direction: column; align-items: center;
-    padding: 12px 14px 0;
+    padding: 12px calc(14px + var(--safe-r)) 0 calc(14px + var(--safe-l));
     padding-bottom: max(36px, calc(var(--safe-b) + 16px));
     gap: 10px;
     z-index: 500;
@@ -80,7 +85,7 @@
     position: absolute; left: 0; right: 0; bottom: 0;
     background: var(--surface);
     border-radius: 22px 22px 0 0;
-    padding: 14px 16px 0;
+    padding: 14px calc(16px + var(--safe-r)) 0 calc(16px + var(--safe-l));
     padding-bottom: max(36px, calc(var(--safe-b) + 16px));
     display: flex; flex-direction: column; gap: 10px;
   }
@@ -319,9 +324,9 @@ function hexCenterContainerPt(q, r) {
   return map.latLngToContainerPoint(ll);
 }
 
-function hexCornersFromContainerCentre(c) {
+function hexCornersFromContainerCentre(c, inflate) {
   const scale = Math.pow(2, map.getZoom());
-  const rad   = R0 * scale;
+  const rad   = R0 * scale + (inflate || 0);
   const pts = [];
   for (let i=0; i<6; i++) {
     // Flat-top: corners at 0°,60°,120°,180°,240°,300°
@@ -332,12 +337,18 @@ function hexCornersFromContainerCentre(c) {
 }
 
 function pxToPd(pts) {
-  return 'M ' + pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ') + ' Z';
+  return 'M ' + pts.map(p=>`${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' L ') + ' Z';
 }
+
+// FILL_INFLATE: sub-pixel overlap between adjacent hex fills so that
+// anti-aliasing on each hex's edge never leaves a hairline gap between
+// two fully-revealed (0%-opacity) neighbours. Purely a rendering nudge —
+// has no effect on hex classification, click detection, or hex math.
+const FILL_INFLATE = 0.6;
 
 function hexPathD(q, r) {
   const c = hexCenterContainerPt(q, r);
-  return pxToPd(hexCornersFromContainerCentre(c));
+  return pxToPd(hexCornersFromContainerCentre(c, FILL_INFLATE));
 }
 
 /* ═══════════════════════════════════════════════════════════
