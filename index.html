@@ -488,9 +488,11 @@ map.on('click', (e) => {
 function toggleHex(key) {
   if (!selectMode) return;
 
-  // The hex the user is currently standing in can't be hidden again,
-  // since it would just be instantly revealed by GPS tracking.
-  if (trackingOn && userLatLng) {
+  // The hex the user is currently standing in can't be hidden again
+  // ONLY when GPS accuracy is good enough (under 100m) that tracking
+  // would just instantly re-reveal it. With worse accuracy, GPS won't
+  // auto-reveal anything, so manual deselection is allowed normally.
+  if (trackingOn && userLatLng && userAccuracy < 100) {
     const userKey = latLngToHexKey(userLatLng.lat, userLatLng.lng);
     if (key === userKey && revealedHexes.has(key)) return;
   }
