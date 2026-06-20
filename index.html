@@ -398,7 +398,7 @@ map.on('move zoom viewreset', drawFog);
 
 map.on('click', (e) => {
   if (!selectMode) return;
-  if (map.getZoom() < 14) return;
+  if (map.getZoom() < 15) return;
   toggleHex(latLngToHexKey(e.latlng.lat, e.latlng.lng));
 });
 
