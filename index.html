@@ -394,12 +394,12 @@ function setMilestoneBaseline(n) {
 let milestoneBaseline = getMilestoneBaseline();
 
 function checkMilestone(newCount) {
-  const previousFloor = Math.floor(milestoneBaseline / 20);
-  const newFloor = Math.floor(newCount / 20);
+  const previousFloor = Math.floor(milestoneBaseline / 1000);
+  const newFloor = Math.floor(newCount / 1000);
   milestoneBaseline = newCount;
   setMilestoneBaseline(milestoneBaseline);
   if (newFloor > previousFloor) {
-    sendMilestoneNotification(newFloor * 20);
+    sendMilestoneNotification(newFloor * 1000);
   }
 }
 
@@ -712,7 +712,7 @@ document.getElementById('btn-select').addEventListener('click', () => {
     draftHexes = new Set(revealedHexes);
     playOpenSound();
   } else {
-    revealedHexes = draftHexes;
+    revealedHexes = new Set(draftHexes);
     draftHexes = null;
     saveRevealedHexes();
     checkMilestone(revealedHexes.size);
@@ -732,6 +732,7 @@ document.getElementById('menu-backdrop').addEventListener('click', closeMenu);
 document.getElementById('menu-back').addEventListener('click', closeMenu);
 
 document.getElementById('menu-save').addEventListener('click', () => {
+  playOpenSound();
   const blob = new Blob([JSON.stringify([...revealedHexes])], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = Object.assign(document.createElement('a'), {
@@ -742,6 +743,7 @@ document.getElementById('menu-save').addEventListener('click', () => {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+  playCloseSound();
   document.getElementById('menu-overlay').classList.remove('open');
 });
 
@@ -770,6 +772,15 @@ document.getElementById('menu-load').addEventListener('click', () => {
       try {
         const imported = JSON.parse(e.target.result);
         if (!Array.isArray(imported)) throw new Error('not an array');
+
+        if (selectMode) {
+          selectMode = false;
+          draftHexes = null;
+          const selectBtn = document.getElementById('btn-select');
+          selectBtn.textContent = 'Select';
+          selectBtn.classList.remove('done-btn');
+        }
+
         revealedHexes = new Set(imported);
         saveRevealedHexes();
         resetMilestoneBaseline(revealedHexes.size);
@@ -783,15 +794,6 @@ document.getElementById('menu-load').addEventListener('click', () => {
       }
     };
     reader.readAsText(file);
-  });
-  window.addEventListener('focus', function onFocusBack() {
-    window.removeEventListener('focus', onFocusBack);
-    setTimeout(() => {
-      if (!resolved && fileInput.files.length === 0) {
-        resolved = true;
-        playCloseSound();
-      }
-    }, 300);
   });
   fileInput.click();
 });
