@@ -179,6 +179,7 @@
     <button class="menu-btn back-btn" id="menu-back">Back</button>
     <button class="menu-btn" id="menu-save">Export</button>
     <button class="menu-btn" id="menu-load">Import</button>
+    <button class="menu-btn" id="menu-sound">Sound: on</button>
     <button class="menu-btn danger" id="menu-clear">Clear data</button>
   </div>
 </div>
@@ -306,7 +307,9 @@ function syncLayout(includeFog) {
   syncSafeArea();
   syncBarHeight();
   syncFogSvgSize();
+  const centerBefore = map.getCenter();
   map.invalidateSize({ animate: false, pan: false });
+  map.setView(centerBefore, map.getZoom(), { animate: false });
   if (includeFog) drawFog();
 }
 
@@ -323,6 +326,79 @@ let followMode = false;
 let isProgrammaticMove = false;
 
 const STORAGE_KEY = 'hexplore_v1';
+const SOUND_KEY = 'hexplore_sound_v1';
+
+let soundOn = true;
+try {
+  const savedSound = localStorage.getItem(SOUND_KEY);
+  if (savedSound !== null) soundOn = savedSound === 'true';
+} catch (e) { }
+
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function tone(freqStart, freqEnd, duration, volume) {
+  if (!soundOn) return;
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.frequency.setValueAtTime(freqStart, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(freqEnd, ctx.currentTime + duration);
+  gain.gain.setValueAtTime(volume, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + duration);
+}
+
+function playOpenSound() {
+  tone(325, 550, 0.05, 0.5);
+  setTimeout(() => tone(450, 325, 0.05, 0.3), 50);
+}
+function playCloseSound() {
+  tone(450, 325, 0.05, 0.5);
+  setTimeout(() => tone(325, 550, 0.05, 0.3), 50);
+}
+function playStartSound() {
+  tone(450, 325, 0.05, 0.5);
+}
+function playStopSound() {
+  tone(325, 550, 0.05, 0.5);
+}
+
+const MILESTONE_KEY = 'hexplore_last_milestone_v1';
+let lastMilestone = 0;
+try {
+  const saved = localStorage.getItem(MILESTONE_KEY);
+  if (saved !== null) lastMilestone = parseInt(saved, 10) || 0;
+} catch (e) { }
+
+function checkMilestone() {
+  const count = revealedHexes.size;
+  const milestone = Math.floor(count / 100) * 100;
+  if (milestone > 0 && milestone > lastMilestone) {
+    lastMilestone = milestone;
+    try { localStorage.setItem(MILESTONE_KEY, String(lastMilestone)); } catch (e) { }
+    sendMilestoneNotification(milestone);
+  }
+}
+
+function sendMilestoneNotification(milestone) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    new Notification('Hexplore', { body: `${milestone} hexagons revealed!` });
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission().then((permission) => {
+      if (permission === 'granted') {
+        new Notification('Hexplore', { body: `${milestone} hexagons revealed!` });
+      }
+    });
+  }
+}
 
 function saveRevealedHexes() {
   try {
@@ -436,8 +512,14 @@ function toggleHex(key) {
     if (key === userKey && revealedHexes.has(key)) return;
   }
 
-  if (revealedHexes.has(key)) revealedHexes.delete(key);
-  else revealedHexes.add(key);
+  if (revealedHexes.has(key)) {
+    revealedHexes.delete(key);
+    playStopSound();
+  } else {
+    revealedHexes.add(key);
+    playStartSound();
+    checkMilestone();
+  }
 
   saveRevealedHexes();
   redrawFog();
@@ -495,6 +577,8 @@ function onPositionUpdate(position) {
       revealedHexes.add(key);
       saveRevealedHexes();
       redrawFog();
+      playStartSound();
+      checkMilestone();
     }
   }
 
@@ -539,10 +623,14 @@ function stopTracking() {
 }
 
 function setFollowMode(on) {
+  const wasOn = followMode;
   followMode = on;
   const btn = document.getElementById('btn-follow');
   btn.textContent = followMode ? 'Following' : 'Follow';
   btn.classList.toggle('active', followMode);
+  if (followMode !== wasOn) {
+    if (followMode) playStartSound(); else playStopSound();
+  }
   if (followMode && userLatLng) {
     isProgrammaticMove = true;
     map.setView([userLatLng.lat, userLatLng.lng], 17, { animate: false });
@@ -577,14 +665,17 @@ function updateStatusLine() {
 }
 
 document.getElementById('btn-menu').addEventListener('click', () => {
+  playOpenSound();
   document.getElementById('menu-overlay').classList.add('open');
 });
 
 document.getElementById('btn-location').addEventListener('click', () => {
   if (!trackingOn) {
     if (!navigator.geolocation) { alert('Geolocation not supported.'); return; }
+    playOpenSound();
     startTracking();
   } else {
+    playCloseSound();
     stopTracking();
   }
 });
@@ -594,10 +685,12 @@ document.getElementById('btn-select').addEventListener('click', () => {
   const btn = document.getElementById('btn-select');
   btn.textContent = selectMode ? 'Done' : 'Select';
   btn.classList.toggle('done-btn', selectMode);
+  if (selectMode) playOpenSound(); else playCloseSound();
   redrawFog();
 });
 
 function closeMenu() {
+  playCloseSound();
   document.getElementById('menu-overlay').classList.remove('open');
 }
 
@@ -605,6 +698,7 @@ document.getElementById('menu-backdrop').addEventListener('click', closeMenu);
 document.getElementById('menu-back').addEventListener('click', closeMenu);
 
 document.getElementById('menu-save').addEventListener('click', () => {
+  playOpenSound();
   const blob = new Blob([JSON.stringify([...revealedHexes])], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = Object.assign(document.createElement('a'), {
@@ -619,6 +713,7 @@ document.getElementById('menu-save').addEventListener('click', () => {
 });
 
 document.getElementById('menu-load').addEventListener('click', () => {
+  playOpenSound();
   stopTracking();
   const fileInput = Object.assign(document.createElement('input'), {
     type: 'file',
@@ -626,7 +721,7 @@ document.getElementById('menu-load').addEventListener('click', () => {
   });
   fileInput.addEventListener('change', () => {
     const file = fileInput.files[0];
-    if (!file) return;
+    if (!file) { playCloseSound(); return; }
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -639,6 +734,7 @@ document.getElementById('menu-load').addEventListener('click', () => {
         updateStatusLine();
         closeMenu();
       } catch {
+        playCloseSound();
         alert('Invalid file.');
       }
     };
@@ -647,16 +743,34 @@ document.getElementById('menu-load').addEventListener('click', () => {
   fileInput.click();
 });
 
+const soundBtn = document.getElementById('menu-sound');
+soundBtn.textContent = `Sound: ${soundOn ? 'on' : 'off'}`;
+soundBtn.addEventListener('click', () => {
+  const turningOn = !soundOn;
+  if (turningOn) {
+    soundOn = true;
+    playStartSound();
+  } else {
+    playStopSound();
+    soundOn = false;
+  }
+  try { localStorage.setItem(SOUND_KEY, String(soundOn)); } catch (e) { }
+  soundBtn.textContent = `Sound: ${soundOn ? 'on' : 'off'}`;
+});
+
 document.getElementById('menu-clear').addEventListener('click', () => {
+  playOpenSound();
   document.getElementById('confirm-overlay').classList.add('open');
 });
 
 document.getElementById('confirm-overlay').addEventListener('click', (e) => {
   if (e.target.id === 'confirm-overlay') {
+    playCloseSound();
     document.getElementById('confirm-overlay').classList.remove('open');
   }
 });
 document.getElementById('confirm-cancel').addEventListener('click', () => {
+  playCloseSound();
   document.getElementById('confirm-overlay').classList.remove('open');
 });
 
@@ -666,8 +780,9 @@ document.getElementById('confirm-ok').addEventListener('click', () => {
   saveRevealedHexes();
   redrawFog();
   updateStatusLine();
+  playCloseSound();
   document.getElementById('confirm-overlay').classList.remove('open');
-  closeMenu();
+  document.getElementById('menu-overlay').classList.remove('open');
 });
 
 syncLayout(true);
