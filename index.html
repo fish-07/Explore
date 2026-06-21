@@ -177,9 +177,9 @@
   <div id="menu-sheet">
     <div id="menu-handle"></div>
     <button class="menu-btn back-btn" id="menu-back">Back</button>
+    <button class="menu-btn" id="menu-sound">Sound: on</button>
     <button class="menu-btn" id="menu-save">Export</button>
     <button class="menu-btn" id="menu-load">Import</button>
-    <button class="menu-btn" id="menu-sound">Sound: on</button>
     <button class="menu-btn danger" id="menu-clear">Clear data</button>
   </div>
 </div>
@@ -316,6 +316,7 @@ function syncLayout(includeFog) {
 syncLayout(false);
 
 let revealedHexes = new Set();
+let draftHexes = null;
 let trackingOn = false;
 let selectMode = false;
 let userLatLng = null;
@@ -324,6 +325,10 @@ let watchId = null;
 let hasSnappedToUser = false;
 let followMode = false;
 let isProgrammaticMove = false;
+
+function activeHexes() {
+  return selectMode ? draftHexes : revealedHexes;
+}
 
 const STORAGE_KEY = 'hexplore_v1';
 const SOUND_KEY = 'hexplore_sound_v1';
@@ -337,31 +342,33 @@ try {
 let audioCtx = null;
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
 
-function tone(freqStart, freqEnd, duration, volume) {
+function tone(freqStart, freqEnd, duration, volume, startOffset) {
   if (!soundOn) return;
   const ctx = getAudioCtx();
+  const startTime = ctx.currentTime + (startOffset || 0);
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
-  osc.frequency.setValueAtTime(freqStart, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(freqEnd, ctx.currentTime + duration);
-  gain.gain.setValueAtTime(volume, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+  osc.frequency.setValueAtTime(freqStart, startTime);
+  osc.frequency.exponentialRampToValueAtTime(freqEnd, startTime + duration);
+  gain.gain.setValueAtTime(volume, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
   osc.connect(gain);
   gain.connect(ctx.destination);
-  osc.start();
-  osc.stop(ctx.currentTime + duration);
+  osc.start(startTime);
+  osc.stop(startTime + duration);
 }
 
 function playOpenSound() {
-  tone(325, 550, 0.05, 0.5);
-  setTimeout(() => tone(450, 325, 0.05, 0.3), 50);
+  tone(325, 550, 0.05, 0.5, 0);
+  tone(450, 325, 0.05, 0.3, 0.05);
 }
 function playCloseSound() {
-  tone(450, 325, 0.05, 0.5);
-  setTimeout(() => tone(325, 550, 0.05, 0.3), 50);
+  tone(450, 325, 0.05, 0.5, 0);
+  tone(325, 550, 0.05, 0.3, 0.05);
 }
 function playStartSound() {
   tone(450, 325, 0.05, 0.5);
@@ -370,31 +377,45 @@ function playStopSound() {
   tone(325, 550, 0.05, 0.5);
 }
 
-const MILESTONE_KEY = 'hexplore_last_milestone_v1';
-let lastMilestone = 0;
-try {
-  const saved = localStorage.getItem(MILESTONE_KEY);
-  if (saved !== null) lastMilestone = parseInt(saved, 10) || 0;
-} catch (e) { }
+const MILESTONE_COUNT_KEY = 'hexplore_milestone_count_v1';
 
-function checkMilestone() {
-  const count = revealedHexes.size;
-  const milestone = Math.floor(count / 100) * 100;
-  if (milestone > 0 && milestone > lastMilestone) {
-    lastMilestone = milestone;
-    try { localStorage.setItem(MILESTONE_KEY, String(lastMilestone)); } catch (e) { }
-    sendMilestoneNotification(milestone);
+function getMilestoneBaseline() {
+  try {
+    const saved = localStorage.getItem(MILESTONE_COUNT_KEY);
+    if (saved !== null) return parseInt(saved, 10) || 0;
+  } catch (e) { }
+  return 0;
+}
+
+function setMilestoneBaseline(n) {
+  try { localStorage.setItem(MILESTONE_COUNT_KEY, String(n)); } catch (e) { }
+}
+
+let milestoneBaseline = getMilestoneBaseline();
+
+function checkMilestone(newCount) {
+  const previousFloor = Math.floor(milestoneBaseline / 1000);
+  const newFloor = Math.floor(newCount / 1000);
+  milestoneBaseline = newCount;
+  setMilestoneBaseline(milestoneBaseline);
+  if (newFloor > previousFloor) {
+    sendMilestoneNotification(newFloor * 1000);
   }
+}
+
+function resetMilestoneBaseline(newCount) {
+  milestoneBaseline = newCount;
+  setMilestoneBaseline(milestoneBaseline);
 }
 
 function sendMilestoneNotification(milestone) {
   if (!('Notification' in window)) return;
   if (Notification.permission === 'granted') {
-    new Notification('Hexplore', { body: `${milestone} hexagons revealed!` });
+    new Notification('Hexplore', { body: `You have ${milestone} hexagons!` });
   } else if (Notification.permission !== 'denied') {
     Notification.requestPermission().then((permission) => {
       if (permission === 'granted') {
-        new Notification('Hexplore', { body: `${milestone} hexagons revealed!` });
+        new Notification('Hexplore', { body: `You have ${milestone} hexagons!` });
       }
     });
   }
@@ -438,11 +459,12 @@ let cachedBorderHexes = null;
 function getBorderHexes() {
   if (cachedBorderHexes) return cachedBorderHexes;
   cachedBorderHexes = new Set();
-  for (const key of revealedHexes) {
+  const hexes = activeHexes();
+  for (const key of hexes) {
     const { q, r } = parseHexKey(key);
     for (const [nq, nr] of hexNeighbours(q, r)) {
       const neighbourKey = hexKey(nq, nr);
-      if (!revealedHexes.has(neighbourKey)) cachedBorderHexes.add(neighbourKey);
+      if (!hexes.has(neighbourKey)) cachedBorderHexes.add(neighbourKey);
     }
   }
   return cachedBorderHexes;
@@ -476,10 +498,11 @@ function drawFog() {
 
   const fogOpacity = selectMode ? 0.5 : 0.95;
   const borderOpacity = 0.5;
+  const hexes = activeHexes();
   const borders = getBorderHexes();
 
   const revealedPaths = [];
-  for (const key of revealedHexes) {
+  for (const key of hexes) {
     const { q, r } = parseHexKey(key);
     revealedPaths.push(hexSvgPath(q, r));
   }
@@ -505,23 +528,21 @@ map.on('click', (e) => {
 });
 
 function toggleHex(key) {
-  if (!selectMode) return;
+  if (!selectMode || !draftHexes) return;
 
   if (trackingOn && userLatLng && userAccuracy < 100) {
     const userKey = latLngToHexKey(userLatLng.lat, userLatLng.lng);
-    if (key === userKey && revealedHexes.has(key)) return;
+    if (key === userKey && draftHexes.has(key)) return;
   }
 
-  if (revealedHexes.has(key)) {
-    revealedHexes.delete(key);
+  if (draftHexes.has(key)) {
+    draftHexes.delete(key);
     playStopSound();
   } else {
-    revealedHexes.add(key);
+    draftHexes.add(key);
     playStartSound();
-    checkMilestone();
   }
 
-  saveRevealedHexes();
   redrawFog();
   updateStatusLine();
 }
@@ -575,10 +596,11 @@ function onPositionUpdate(position) {
     const key = latLngToHexKey(lat, lng);
     if (!revealedHexes.has(key)) {
       revealedHexes.add(key);
+      if (draftHexes) draftHexes.add(key);
       saveRevealedHexes();
       redrawFog();
       playStartSound();
-      checkMilestone();
+      checkMilestone(revealedHexes.size);
     }
   }
 
@@ -659,7 +681,7 @@ function updateStatusLine() {
   if (trackingOn && userAccuracy !== null) {
     el.textContent = `±${Math.round(userAccuracy)} meters`;
   } else {
-    const count = revealedHexes.size;
+    const count = activeHexes().size;
     el.textContent = `${count} hexagon${count !== 1 ? 's' : ''}`;
   }
 }
@@ -685,8 +707,20 @@ document.getElementById('btn-select').addEventListener('click', () => {
   const btn = document.getElementById('btn-select');
   btn.textContent = selectMode ? 'Done' : 'Select';
   btn.classList.toggle('done-btn', selectMode);
-  if (selectMode) playOpenSound(); else playCloseSound();
+
+  if (selectMode) {
+    draftHexes = new Set(revealedHexes);
+    playOpenSound();
+  } else {
+    revealedHexes = draftHexes;
+    draftHexes = null;
+    saveRevealedHexes();
+    checkMilestone(revealedHexes.size);
+    playCloseSound();
+  }
+
   redrawFog();
+  updateStatusLine();
 });
 
 function closeMenu() {
@@ -698,7 +732,6 @@ document.getElementById('menu-backdrop').addEventListener('click', closeMenu);
 document.getElementById('menu-back').addEventListener('click', closeMenu);
 
 document.getElementById('menu-save').addEventListener('click', () => {
-  playOpenSound();
   const blob = new Blob([JSON.stringify([...revealedHexes])], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = Object.assign(document.createElement('a'), {
@@ -709,7 +742,7 @@ document.getElementById('menu-save').addEventListener('click', () => {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-  closeMenu();
+  document.getElementById('menu-overlay').classList.remove('open');
 });
 
 document.getElementById('menu-load').addEventListener('click', () => {
@@ -719,9 +752,19 @@ document.getElementById('menu-load').addEventListener('click', () => {
     type: 'file',
     accept: '.json,application/json',
   });
+  let resolved = false;
+  fileInput.addEventListener('cancel', () => {
+    if (resolved) return;
+    resolved = true;
+    playCloseSound();
+  });
   fileInput.addEventListener('change', () => {
     const file = fileInput.files[0];
-    if (!file) { playCloseSound(); return; }
+    if (!file) {
+      if (!resolved) { resolved = true; playCloseSound(); }
+      return;
+    }
+    resolved = true;
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -729,6 +772,7 @@ document.getElementById('menu-load').addEventListener('click', () => {
         if (!Array.isArray(imported)) throw new Error('not an array');
         revealedHexes = new Set(imported);
         saveRevealedHexes();
+        resetMilestoneBaseline(revealedHexes.size);
         snapToRandomRevealedHex();
         redrawFog();
         updateStatusLine();
@@ -739,6 +783,15 @@ document.getElementById('menu-load').addEventListener('click', () => {
       }
     };
     reader.readAsText(file);
+  });
+  window.addEventListener('focus', function onFocusBack() {
+    window.removeEventListener('focus', onFocusBack);
+    setTimeout(() => {
+      if (!resolved && fileInput.files.length === 0) {
+        resolved = true;
+        playCloseSound();
+      }
+    }, 300);
   });
   fileInput.click();
 });
@@ -778,6 +831,7 @@ document.getElementById('confirm-ok').addEventListener('click', () => {
   stopTracking();
   revealedHexes.clear();
   saveRevealedHexes();
+  resetMilestoneBaseline(0);
   redrawFog();
   updateStatusLine();
   playCloseSound();
