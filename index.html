@@ -343,28 +343,30 @@ try {
 let audioCtx = null;
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
-
-document.addEventListener('touchstart', () => {
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-}, { passive: true, capture: true });
 
 function tone(freqStart, freqEnd, duration, volume, startOffset) {
   if (!soundOn) return;
   const ctx = getAudioCtx();
-  const startTime = ctx.currentTime + (startOffset || 0);
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.frequency.setValueAtTime(freqStart, startTime);
-  osc.frequency.exponentialRampToValueAtTime(freqEnd, startTime + duration);
-  gain.gain.setValueAtTime(volume, startTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(startTime);
-  osc.stop(startTime + duration);
+  const schedule = () => {
+    const startTime = ctx.currentTime + (startOffset || 0);
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.setValueAtTime(freqStart, startTime);
+    osc.frequency.exponentialRampToValueAtTime(freqEnd, startTime + duration);
+    gain.gain.setValueAtTime(volume, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+  };
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(schedule);
+  } else {
+    schedule();
+  }
 }
 
 function playOpenSound() {
@@ -856,9 +858,27 @@ document.getElementById('confirm-cancel').addEventListener('click', () => {
 
 document.getElementById('confirm-ok').addEventListener('click', () => {
   stopTracking();
+
+  if (selectMode) {
+    selectMode = false;
+    draftHexes = null;
+    const selectBtn = document.getElementById('btn-select');
+    selectBtn.textContent = 'Select';
+    selectBtn.classList.remove('done-btn');
+  }
+
   revealedHexes.clear();
   saveRevealedHexes();
   resetMilestoneBaseline(0);
+
+  soundOn = true;
+  try { localStorage.setItem(SOUND_KEY, 'true'); } catch (e) { }
+  soundBtn.textContent = 'Sound: on';
+
+  milestoneStep = 500;
+  try { localStorage.setItem(MILESTONE_STEP_KEY, '500'); } catch (e) { }
+  milestoneBtn.textContent = 'Milestone: 500';
+
   redrawFog();
   updateStatusLine();
   playCloseSound();
