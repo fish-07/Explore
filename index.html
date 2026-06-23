@@ -13,11 +13,11 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-html, body {
+  html, body {
     touch-action: none;
     overscroll-behavior: none;
   }
- 
+
   :root {
     --bg: #101010;
     --surface: #202020;
@@ -25,18 +25,19 @@ html, body {
     --text: #fff;
     --accent: #00a0e0;
     --danger: #c00000;
+    --font: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
     --safe-t: env(safe-area-inset-top, 0px);
     --safe-b: env(safe-area-inset-bottom, 0px);
     --safe-l: env(safe-area-inset-left, 0px);
     --safe-r: env(safe-area-inset-right, 0px);
   }
 
-  html { background: #101010; }
+  html { background: var(--bg); }
 
   body {
     width: 100%; height: 100%; overflow: hidden;
     background: var(--bg);
-    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    font-family: var(--font);
     color: var(--text);
     user-select: none; -webkit-user-select: none;
   }
@@ -74,23 +75,24 @@ html, body {
     flex: 1; height: 60px;
     border: none; outline: none; border-radius: 15px;
     background: var(--muted); color: var(--text);
+    font-family: var(--font);
     font-size: 15px; font-weight: 600; cursor: pointer;
     transition: background .15s, transform .1s;
     -webkit-appearance: none;
   }
   .bar-btn:active { transform: scale(.95); }
-  .bar-btn.active { background: var(--accent); }
-  .bar-btn.done-btn { background: var(--accent); }
+  .bar-btn.active { background: var(--accent); color: #fff; }
+  .bar-btn.done-btn { background: var(--accent); color: #fff; }
 
   #btn-follow {
     display: none;
     position: fixed;
     top: calc(var(--safe-t) + 15px);
     left: calc(var(--safe-l) + 15px);
-    width: 110px;
-    height: 40px;
+    width: 110px; height: 40px;
     border: none; outline: none; border-radius: 15px;
     background: var(--muted); color: var(--text);
+    font-family: var(--font);
     font-size: 15px; font-weight: 600; cursor: pointer;
     transition: background .15s, transform .1s;
     -webkit-appearance: none;
@@ -98,17 +100,17 @@ html, body {
   }
   #btn-follow.visible { display: block; }
   #btn-follow:active { transform: scale(.95); }
-  #btn-follow.active { background: var(--accent); }
+  #btn-follow.active { background: var(--accent); color: #fff; }
 
   #btn-cancel-select {
     display: none;
     position: fixed;
     top: calc(var(--safe-t) + 15px);
     right: calc(var(--safe-r) + 15px);
-    width: 110px;
-    height: 40px;
+    width: 110px; height: 40px;
     border: none; outline: none; border-radius: 15px;
     background: var(--muted); color: var(--text);
+    font-family: var(--font);
     font-size: 15px; font-weight: 600; cursor: pointer;
     transition: background .15s, transform .1s;
     -webkit-appearance: none;
@@ -120,15 +122,25 @@ html, body {
   #menu-overlay { display: none; position: fixed; inset: 0; z-index: 600; }
   #menu-overlay.open { display: block; }
   #menu-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
-  #menu-sheet {
+
+  #menu-sheet, #settings-sheet {
     position: absolute; left: 0; right: 0; bottom: 0;
     background: var(--surface);
     border-radius: 20px 20px 0 0;
     padding: 15px calc(15px + var(--safe-r)) 0 calc(15px + var(--safe-l));
     padding-bottom: max(35px, calc(var(--safe-b) + 15px));
     display: flex; flex-direction: column; gap: 10px;
+    transition: transform .25s ease;
   }
-  #menu-handle {
+  #settings-sheet {
+    transform: translateX(100%);
+    display: flex;
+  }
+  #menu-overlay.open #menu-sheet { transform: translateX(0); }
+  #menu-overlay.settings-open #menu-sheet { transform: translateX(-100%); }
+  #menu-overlay.settings-open #settings-sheet { transform: translateX(0); }
+
+  #menu-handle, #settings-handle {
     width: 40px; height: 4px; border-radius: 2px;
     background: var(--muted); align-self: center; margin-bottom: 4px;
   }
@@ -136,6 +148,7 @@ html, body {
     width: 100%; height: 55px;
     border: none; outline: none; border-radius: 15px;
     background: var(--muted); color: var(--text);
+    font-family: var(--font);
     font-size: 18px; font-weight: 600; cursor: pointer;
     -webkit-appearance: none;
     transition: background .15s, transform .1s;
@@ -161,24 +174,21 @@ html, body {
   .confirm-row button {
     flex: 1; height: 50px;
     border: none; outline: none; border-radius: 15px;
+    font-family: var(--font);
     font-size: 16px; font-weight: 600; cursor: pointer;
     -webkit-appearance: none;
   }
   #confirm-cancel { background: var(--muted); color: var(--text); }
   #confirm-ok { background: var(--danger); color: #fff; }
 
-  .leaflet-container.select-active {
-    cursor: pointer !important;
-  }
-  .leaflet-container.select-active .leaflet-grab {
-    cursor: pointer !important;
-  }
+  .leaflet-container.select-active { cursor: pointer !important; }
+  .leaflet-container.select-active .leaflet-grab { cursor: pointer !important; }
 
   .leaflet-control-attribution {
-    background: rgba(16,16,16,0.7) !important;
+    background: rgba(0,0,0,0.5) !important;
     color: #aaa !important;
   }
-  .leaflet-control-attribution a { color: #00a0e0 !important; }
+  .leaflet-control-attribution a { color: var(--accent) !important; }
 </style>
 </head>
 <body>
@@ -207,11 +217,17 @@ html, body {
   <div id="menu-sheet">
     <div id="menu-handle"></div>
     <button class="menu-btn back-btn" id="menu-back">Back</button>
-    <button class="menu-btn" id="menu-milestone">Milestone: 500</button>
-    <button class="menu-btn" id="menu-sound">Sound: on</button>
+    <button class="menu-btn" id="menu-settings-open">Settings</button>
     <button class="menu-btn" id="menu-save">Export</button>
     <button class="menu-btn" id="menu-load">Import</button>
     <button class="menu-btn danger" id="menu-clear">Clear data</button>
+  </div>
+  <div id="settings-sheet">
+    <div id="settings-handle"></div>
+    <button class="menu-btn back-btn" id="settings-back">Back</button>
+    <button class="menu-btn" id="menu-milestone">Milestone: 500</button>
+    <button class="menu-btn" id="menu-sound">Sound: On</button>
+    <button class="menu-btn" id="menu-theme">Theme: Default</button>
   </div>
 </div>
 
@@ -256,12 +272,10 @@ function latLngToHexKey(lat, lng) {
   const fq = p.x * 2 / (3 * HEX_RADIUS_PX0);
   const fr = p.y / (Math.sqrt(3) * HEX_RADIUS_PX0) - fq / 2;
   const fs = -fq - fr;
-
   let q = Math.round(fq), r = Math.round(fr), s = Math.round(fs);
   const dq = Math.abs(q - fq), dr = Math.abs(r - fr), ds = Math.abs(s - fs);
   if (dq > dr && dq > ds) q = -r - s;
   else if (dr > ds) r = -q - s;
-
   return hexKey(q, r);
 }
 
@@ -284,10 +298,7 @@ function hexCornersOnScreen(q, r) {
   const corners = [];
   for (let i = 0; i < 6; i++) {
     const angle = i * (Math.PI / 3);
-    corners.push({
-      x: center.x + radius * Math.cos(angle),
-      y: center.y + radius * Math.sin(angle),
-    });
+    corners.push({ x: center.x + radius * Math.cos(angle), y: center.y + radius * Math.sin(angle) });
   }
   return corners;
 }
@@ -342,9 +353,12 @@ function syncLayout(includeFog) {
   map.invalidateSize({ animate: false, pan: false });
   map.setView(centerBefore, map.getZoom(), { animate: false });
   if (includeFog) drawFog();
+  if (followMode && userLatLng) {
+    isProgrammaticMove = true;
+    map.panTo([userLatLng.lat, userLatLng.lng], { animate: false });
+    isProgrammaticMove = false;
+  }
 }
-
-syncLayout(false);
 
 let revealedHexes = new Set();
 let draftHexes = null;
@@ -356,19 +370,113 @@ let watchId = null;
 let hasSnappedToUser = false;
 let followMode = false;
 let isProgrammaticMove = false;
+let userMarker = null;
+let userAccuracyCircle = null;
+let fogLayer = null;
+let borderLayer = null;
+let cachedBorderHexes = null;
 
-function activeHexes() {
-  return selectMode ? draftHexes : revealedHexes;
+syncLayout(false);
+
+const THEMES = {
+  default: {
+    name: 'Default',
+    '--bg': '#101010',
+    '--surface': '#202020',
+    '--muted': '#404040',
+    '--text': '#fff',
+    '--accent': '#00a0e0',
+    '--danger': '#c00000',
+    '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
+    locationColor: '#00a0e0',
+  },
+  spring: {
+    name: 'Spring',
+    '--bg': '#102010',
+    '--surface': '#204020',
+    '--muted': '#306030',
+    '--text': '#50a050',
+    '--accent': '#50a050',
+    '--danger': '#806040',
+    '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
+    locationColor: '#ff80c0',
+  },
+  summer: {
+    name: 'Summer',
+    '--bg': '#002040',
+    '--surface': '#806000',
+    '--muted': '#c09000',
+    '--text': '#ffe080',
+    '--accent': '#004080',
+    '--danger': '#285028',
+    '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
+    locationColor: '#00a0e0',
+  },
+  autumn: {
+    name: 'Autumn',
+    '--bg': '#301000',
+    '--surface': '#603000',
+    '--muted': '#804000',
+    '--text': '#ff8000',
+    '--accent': '#c06000',
+    '--danger': '#c08000',
+    '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
+    locationColor: '#ff8000',
+  },
+  winter: {
+    name: 'Winter',
+    '--bg': '#fff',
+    '--surface': '#a0d0ff',
+    '--muted': '#60b0ff',
+    '--text': '#0060c0',
+    '--accent': '#0080ff',
+    '--danger': '#c050c0',
+    '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
+    locationColor: '#c050c0',
+  },
+};
+
+const THEME_ORDER = ['default', 'spring', 'summer', 'autumn', 'winter'];
+const THEME_KEY = 'hexplore_theme_v1';
+let currentThemeName = 'default';
+try {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved && THEMES[saved]) currentThemeName = saved;
+} catch (e) {}
+
+function applyTheme(name) {
+  const theme = THEMES[name] || THEMES.default;
+  currentThemeName = name;
+  const root = document.documentElement;
+  for (const [prop, val] of Object.entries(theme)) {
+    if (prop.startsWith('--')) root.style.setProperty(prop, val);
+  }
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', theme['--bg']);
+  if (fogLayer) fogLayer.setAttribute('fill', theme['--bg']);
+  if (borderLayer) borderLayer.setAttribute('fill', theme['--bg']);
+  rebuildUserLocationIcon(theme.locationColor);
 }
 
-const STORAGE_KEY = 'hexplore_v1';
-const SOUND_KEY = 'hexplore_sound_v1';
+function rebuildUserLocationIcon(color) {
+  if (userMarker) userMarker.setIcon(makeLocationIcon(color));
+  if (userAccuracyCircle) userAccuracyCircle.setStyle({ color, fillColor: color });
+}
 
+function makeLocationIcon(color) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 0 8px ${color}cc;"></div>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  });
+}
+
+const SOUND_KEY = 'hexplore_sound_v1';
 let soundOn = true;
 try {
   const savedSound = localStorage.getItem(SOUND_KEY);
   if (savedSound !== null) soundOn = savedSound === 'true';
-} catch (e) { }
+} catch (e) {}
 
 let audioCtx = null;
 
@@ -377,9 +485,7 @@ function createAudioCtx() {
 }
 
 function getAudioCtx() {
-  if (!audioCtx || audioCtx.state === 'closed') {
-    audioCtx = createAudioCtx();
-  }
+  if (!audioCtx || audioCtx.state === 'closed') audioCtx = createAudioCtx();
   return audioCtx;
 }
 
@@ -407,12 +513,10 @@ function resumeWithTimeout(ctx, ms) {
 function tone(freqStart, freqEnd, duration, volume, startOffset) {
   if (!soundOn) return;
   const ctx = getAudioCtx();
-
   if (ctx.state === 'running') {
     scheduleTone(ctx, freqStart, freqEnd, duration, volume, startOffset);
     return;
   }
-
   resumeWithTimeout(ctx, 300).then((state) => {
     if (state === 'running') {
       scheduleTone(ctx, freqStart, freqEnd, duration, volume, startOffset);
@@ -421,72 +525,52 @@ function tone(freqStart, freqEnd, duration, volume, startOffset) {
     audioCtx = createAudioCtx();
     const freshCtx = audioCtx;
     resumeWithTimeout(freshCtx, 300).then((freshState) => {
-      if (freshState === 'running') {
-        scheduleTone(freshCtx, freqStart, freqEnd, duration, volume, startOffset);
-      }
+      if (freshState === 'running') scheduleTone(freshCtx, freqStart, freqEnd, duration, volume, startOffset);
     });
   });
 }
 
-function playOpenSound() {
-  tone(325, 550, 0.05, 0.5, 0);
-  tone(450, 325, 0.05, 0.3, 0.05);
-}
-function playCloseSound() {
-  tone(450, 325, 0.05, 0.5, 0);
-  tone(325, 550, 0.05, 0.3, 0.05);
-}
-function playStartSound() {
-  tone(450, 325, 0.05, 0.5);
-}
-function playStopSound() {
-  tone(325, 550, 0.05, 0.5);
-}
+function playOpenSound() { tone(325, 550, 0.05, 0.5, 0); tone(450, 325, 0.05, 0.3, 0.05); }
+function playCloseSound() { tone(450, 325, 0.05, 0.5, 0); tone(325, 550, 0.05, 0.3, 0.05); }
+function playStartSound() { tone(450, 325, 0.05, 0.5); }
+function playStopSound() { tone(325, 550, 0.05, 0.5); }
 
 const MILESTONE_COUNT_KEY = 'hexplore_milestone_count_v1';
 const MILESTONE_STEP_KEY = 'hexplore_milestone_step_v1';
-
-const MILESTONE_STEPS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 'off'];
+const MILESTONE_STEPS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 'Off'];
 let milestoneStep = 500;
 try {
   const saved = localStorage.getItem(MILESTONE_STEP_KEY);
   if (saved !== null) {
-    if (saved === 'off') {
-      milestoneStep = 'off';
-    } else {
+    if (saved === 'Off') milestoneStep = 'Off';
+    else {
       const parsed = parseInt(saved, 10);
       if (MILESTONE_STEPS.includes(parsed)) milestoneStep = parsed;
     }
   }
-} catch (e) { }
+} catch (e) {}
 
 function getMilestoneBaseline() {
   try {
     const saved = localStorage.getItem(MILESTONE_COUNT_KEY);
     if (saved !== null) return parseInt(saved, 10) || 0;
-  } catch (e) { }
+  } catch (e) {}
   return 0;
 }
 
 function setMilestoneBaseline(n) {
-  try { localStorage.setItem(MILESTONE_COUNT_KEY, String(n)); } catch (e) { }
+  try { localStorage.setItem(MILESTONE_COUNT_KEY, String(n)); } catch (e) {}
 }
 
 let milestoneBaseline = getMilestoneBaseline();
 
 function checkMilestone(newCount) {
-  if (milestoneStep === 'off') {
-    milestoneBaseline = newCount;
-    setMilestoneBaseline(milestoneBaseline);
-    return;
-  }
+  if (milestoneStep === 'Off') { milestoneBaseline = newCount; setMilestoneBaseline(milestoneBaseline); return; }
   const previousFloor = Math.floor(milestoneBaseline / milestoneStep);
   const newFloor = Math.floor(newCount / milestoneStep);
   milestoneBaseline = newCount;
   setMilestoneBaseline(milestoneBaseline);
-  if (newFloor > previousFloor) {
-    sendMilestoneNotification(newFloor * milestoneStep);
-  }
+  if (newFloor > previousFloor) sendMilestoneNotification(newFloor * milestoneStep);
 }
 
 function resetMilestoneBaseline(newCount) {
@@ -496,37 +580,35 @@ function resetMilestoneBaseline(newCount) {
 
 function sendMilestoneNotification(milestone) {
   if (!('Notification' in window)) return;
+  const body = `You have ${milestone} hexagons!`;
   if (Notification.permission === 'granted') {
-    new Notification('Hexplore', { body: `You have ${milestone} hexagons!` });
+    new Notification('Hexplore', { body });
   } else if (Notification.permission !== 'denied') {
-    Notification.requestPermission().then((permission) => {
-      if (permission === 'granted') {
-        new Notification('Hexplore', { body: `You have ${milestone} hexagons!` });
-      }
+    Notification.requestPermission().then((perm) => {
+      if (perm === 'granted') new Notification('Hexplore', { body });
     });
   }
 }
 
+const STORAGE_KEY = 'hexplore_v1';
+
 function saveRevealedHexes() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...revealedHexes]));
-  } catch (e) { }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...revealedHexes])); } catch (e) {}
 }
 
 function loadRevealedHexes() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) revealedHexes = new Set(JSON.parse(saved));
-  } catch (e) { }
+  } catch (e) {}
 }
+
+function activeHexes() { return selectMode ? draftHexes : revealedHexes; }
 
 loadRevealedHexes();
 
 function snapToRandomRevealedHex() {
-  if (revealedHexes.size === 0) {
-    map.setView([20, 0], 3, { animate: false });
-    return;
-  }
+  if (revealedHexes.size === 0) { map.setView([20, 0], 3, { animate: false }); return; }
   const keys = [...revealedHexes];
   const randomKey = keys[Math.floor(Math.random() * keys.length)];
   const { q, r } = parseHexKey(randomKey);
@@ -541,10 +623,6 @@ const fogSvg = document.getElementById('fog-svg');
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const WORLD_RECT = 'M -99999,-99999 L 99999,-99999 L 99999,99999 L -99999,99999 Z ';
 
-let fogLayer = null;
-let borderLayer = null;
-let cachedBorderHexes = null;
-
 function getBorderHexes() {
   if (cachedBorderHexes) return cachedBorderHexes;
   cachedBorderHexes = new Set();
@@ -552,8 +630,8 @@ function getBorderHexes() {
   for (const key of hexes) {
     const { q, r } = parseHexKey(key);
     for (const [nq, nr] of hexNeighbours(q, r)) {
-      const neighbourKey = hexKey(nq, nr);
-      if (!hexes.has(neighbourKey)) cachedBorderHexes.add(neighbourKey);
+      const nk = hexKey(nq, nr);
+      if (!hexes.has(nk)) cachedBorderHexes.add(nk);
     }
   }
   return cachedBorderHexes;
@@ -565,31 +643,26 @@ function ensureFogLayers() {
   if (!fogLayer) {
     fogLayer = document.createElementNS(SVG_NS, 'path');
     fogLayer.setAttribute('fill-rule', 'evenodd');
-    fogLayer.setAttribute('fill', '#101010');
+    fogLayer.setAttribute('fill', THEMES[currentThemeName]['--bg']);
     fogLayer.setAttribute('pointer-events', 'none');
     fogSvg.appendChild(fogLayer);
   }
   if (!borderLayer) {
     borderLayer = document.createElementNS(SVG_NS, 'path');
-    borderLayer.setAttribute('fill', '#101010');
+    borderLayer.setAttribute('fill', THEMES[currentThemeName]['--bg']);
     borderLayer.setAttribute('pointer-events', 'none');
     fogSvg.appendChild(borderLayer);
   }
 }
 
-function redrawFog() {
-  invalidateBorderCache();
-  drawFog();
-}
+function redrawFog() { invalidateBorderCache(); drawFog(); }
 
 function drawFog() {
   ensureFogLayers();
-
   const fogOpacity = selectMode ? 0.5 : 0.98;
   const borderOpacity = 0.5;
   const hexes = activeHexes();
   const borders = getBorderHexes();
-
   const revealedPaths = [];
   for (const key of hexes) {
     const { q, r } = parseHexKey(key);
@@ -600,10 +673,8 @@ function drawFog() {
     const { q, r } = parseHexKey(key);
     borderPaths.push(hexSvgPath(q, r));
   }
-
   fogLayer.setAttribute('fill-opacity', String(fogOpacity));
   fogLayer.setAttribute('d', WORLD_RECT + revealedPaths.join(' ') + ' ' + borderPaths.join(' '));
-
   borderLayer.setAttribute('fill-opacity', String(borderOpacity));
   borderLayer.setAttribute('d', borderPaths.join(' ') || 'M 0 0 Z');
 }
@@ -618,33 +689,15 @@ map.on('click', (e) => {
 
 function toggleHex(key) {
   if (!selectMode || !draftHexes) return;
-
   if (trackingOn && userLatLng && userAccuracy < 100) {
     const userKey = latLngToHexKey(userLatLng.lat, userLatLng.lng);
     if (key === userKey && draftHexes.has(key)) return;
   }
-
-  if (draftHexes.has(key)) {
-    draftHexes.delete(key);
-    playStopSound();
-  } else {
-    draftHexes.add(key);
-    playStartSound();
-  }
-
+  if (draftHexes.has(key)) { draftHexes.delete(key); playStopSound(); }
+  else { draftHexes.add(key); playStartSound(); }
   redrawFog();
   updateStatusLine();
 }
-
-const userLocationIcon = L.divIcon({
-  className: '',
-  html: '<div style="width:18px;height:18px;border-radius:50%;background:#00a0e0;border:3px solid #fff;box-shadow:0 0 8px rgba(0,160,224,.8);"></div>',
-  iconSize: [18, 18],
-  iconAnchor: [9, 9],
-});
-
-let userMarker = null;
-let userAccuracyCircle = null;
 
 function onPositionUpdate(position) {
   const { latitude: lat, longitude: lng, accuracy } = position.coords;
@@ -663,20 +716,17 @@ function onPositionUpdate(position) {
     isProgrammaticMove = false;
   }
 
+  const theme = THEMES[currentThemeName] || THEMES.default;
   if (!userMarker) {
-    userMarker = L.marker([lat, lng], { icon: userLocationIcon, zIndexOffset: 1000 }).addTo(map);
+    userMarker = L.marker([lat, lng], { icon: makeLocationIcon(theme.locationColor), zIndexOffset: 1000 }).addTo(map);
   } else {
     userMarker.setLatLng([lat, lng]);
   }
 
   if (!userAccuracyCircle) {
     userAccuracyCircle = L.circle([lat, lng], {
-      radius: accuracy,
-      color: '#00a0e0',
-      fillColor: '#00a0e0',
-      fillOpacity: 0.08,
-      weight: 1,
-      opacity: 0.4,
+      radius: accuracy, color: theme.locationColor, fillColor: theme.locationColor,
+      fillOpacity: 0.08, weight: 1, opacity: 0.4,
     }).addTo(map);
   } else {
     userAccuracyCircle.setLatLng([lat, lng]).setRadius(accuracy);
@@ -693,13 +743,10 @@ function onPositionUpdate(position) {
       checkMilestone(revealedHexes.size);
     }
   }
-
   updateStatusLine();
 }
 
-function onPositionError(error) {
-  console.warn('Geolocation error:', error.message);
-}
+function onPositionError(error) { console.warn('Geolocation error:', error.message); }
 
 function startTracking() {
   trackingOn = true;
@@ -709,9 +756,7 @@ function startTracking() {
   document.getElementById('btn-follow').classList.add('visible');
   setFollowMode(false);
   watchId = navigator.geolocation.watchPosition(onPositionUpdate, onPositionError, {
-    enableHighAccuracy: true,
-    maximumAge: 2000,
-    timeout: 10000,
+    enableHighAccuracy: true, maximumAge: 2000, timeout: 10000,
   });
 }
 
@@ -721,16 +766,10 @@ function stopTracking() {
   document.getElementById('btn-location').classList.remove('active');
   document.getElementById('btn-follow').classList.remove('visible');
   setFollowMode(false);
-
-  if (watchId !== null) {
-    navigator.geolocation.clearWatch(watchId);
-    watchId = null;
-  }
+  if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
   if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
   if (userAccuracyCircle) { map.removeLayer(userAccuracyCircle); userAccuracyCircle = null; }
-
-  userLatLng = null;
-  userAccuracy = null;
+  userLatLng = null; userAccuracy = null;
   updateStatusLine();
 }
 
@@ -740,9 +779,7 @@ function setFollowMode(on) {
   const btn = document.getElementById('btn-follow');
   btn.textContent = followMode ? 'Following' : 'Follow';
   btn.classList.toggle('active', followMode);
-  if (followMode !== wasOn) {
-    if (followMode) playStartSound(); else playStopSound();
-  }
+  if (followMode !== wasOn) { if (followMode) playStartSound(); else playStopSound(); }
   if (followMode && userLatLng) {
     isProgrammaticMove = true;
     map.setView([userLatLng.lat, userLatLng.lng], 17, { animate: false });
@@ -750,14 +787,9 @@ function setFollowMode(on) {
   }
 }
 
-document.getElementById('btn-follow').addEventListener('click', () => {
-  setFollowMode(!followMode);
-});
+document.getElementById('btn-follow').addEventListener('click', () => setFollowMode(!followMode));
 
-map.on('dragstart', () => {
-  if (followMode && !isProgrammaticMove) setFollowMode(false);
-});
-
+map.on('dragstart', () => { if (followMode && !isProgrammaticMove) setFollowMode(false); });
 map.on('zoomend', () => {
   if (followMode && !isProgrammaticMove && userLatLng) {
     isProgrammaticMove = true;
@@ -774,6 +806,26 @@ function updateStatusLine() {
     const count = activeHexes().size;
     el.textContent = `${count} hexagon${count !== 1 ? 's' : ''}`;
   }
+}
+
+function exitSelectMode(discard) {
+  if (!selectMode) return;
+  selectMode = false;
+  const btn = document.getElementById('btn-select');
+  btn.textContent = 'Select';
+  btn.classList.remove('done-btn');
+  document.getElementById('map').classList.remove('select-active');
+  document.getElementById('btn-cancel-select').classList.remove('visible');
+  if (!discard) {
+    revealedHexes = new Set(draftHexes);
+    draftHexes = null;
+    saveRevealedHexes();
+    checkMilestone(revealedHexes.size);
+  } else {
+    draftHexes = null;
+  }
+  redrawFog();
+  updateStatusLine();
 }
 
 document.getElementById('btn-menu').addEventListener('click', () => {
@@ -793,49 +845,55 @@ document.getElementById('btn-location').addEventListener('click', () => {
 });
 
 document.getElementById('btn-select').addEventListener('click', () => {
-  selectMode = !selectMode;
-  const btn = document.getElementById('btn-select');
-  btn.textContent = selectMode ? 'Done' : 'Select';
-  btn.classList.toggle('done-btn', selectMode);
-  document.getElementById('map').classList.toggle('select-active', selectMode);
-  document.getElementById('btn-cancel-select').classList.toggle('visible', selectMode);
-
-  if (selectMode) {
+  if (!selectMode) {
+    selectMode = true;
     draftHexes = new Set(revealedHexes);
+    const btn = document.getElementById('btn-select');
+    btn.textContent = 'Done';
+    btn.classList.add('done-btn');
+    document.getElementById('map').classList.add('select-active');
+    document.getElementById('btn-cancel-select').classList.add('visible');
     playOpenSound();
+    redrawFog();
+    updateStatusLine();
   } else {
-    revealedHexes = new Set(draftHexes);
-    draftHexes = null;
-    saveRevealedHexes();
-    checkMilestone(revealedHexes.size);
     playCloseSound();
+    exitSelectMode(false);
   }
-
-  redrawFog();
-  updateStatusLine();
 });
 
 document.getElementById('btn-cancel-select').addEventListener('click', () => {
   if (!selectMode) return;
-  selectMode = false;
-  draftHexes = null;
-  const btn = document.getElementById('btn-select');
-  btn.textContent = 'Select';
-  btn.classList.remove('done-btn');
-  document.getElementById('map').classList.remove('select-active');
-  document.getElementById('btn-cancel-select').classList.remove('visible');
   playCloseSound();
-  redrawFog();
-  updateStatusLine();
+  exitSelectMode(true);
 });
+
+function closeAllMenus() {
+  playCloseSound();
+  document.getElementById('menu-overlay').classList.remove('open');
+  document.getElementById('menu-overlay').classList.remove('settings-open');
+}
 
 function closeMenu() {
   playCloseSound();
   document.getElementById('menu-overlay').classList.remove('open');
+  document.getElementById('menu-overlay').classList.remove('settings-open');
 }
 
-document.getElementById('menu-backdrop').addEventListener('click', closeMenu);
+function openSettings() {
+  playOpenSound();
+  document.getElementById('menu-overlay').classList.add('settings-open');
+}
+
+function closeSettings() {
+  playCloseSound();
+  document.getElementById('menu-overlay').classList.remove('settings-open');
+}
+
+document.getElementById('menu-backdrop').addEventListener('click', closeAllMenus);
 document.getElementById('menu-back').addEventListener('click', closeMenu);
+document.getElementById('menu-settings-open').addEventListener('click', openSettings);
+document.getElementById('settings-back').addEventListener('click', closeSettings);
 
 document.getElementById('menu-save').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify([...revealedHexes])], { type: 'application/json' });
@@ -849,44 +907,27 @@ document.getElementById('menu-save').addEventListener('click', () => {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
   document.getElementById('menu-overlay').classList.remove('open');
+  document.getElementById('menu-overlay').classList.remove('settings-open');
 });
 
 document.getElementById('menu-load').addEventListener('click', () => {
   playOpenSound();
   stopTracking();
   const fileInput = Object.assign(document.createElement('input'), {
-    type: 'file',
-    accept: '.json,application/json',
+    type: 'file', accept: '.json,application/json',
   });
   let resolved = false;
-  fileInput.addEventListener('cancel', () => {
-    if (resolved) return;
-    resolved = true;
-    playCloseSound();
-  });
+  fileInput.addEventListener('cancel', () => { if (resolved) return; resolved = true; playCloseSound(); });
   fileInput.addEventListener('change', () => {
     const file = fileInput.files[0];
-    if (!file) {
-      if (!resolved) { resolved = true; playCloseSound(); }
-      return;
-    }
+    if (!file) { if (!resolved) { resolved = true; playCloseSound(); } return; }
     resolved = true;
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const imported = JSON.parse(e.target.result);
         if (!Array.isArray(imported)) throw new Error('not an array');
-
-        if (selectMode) {
-          selectMode = false;
-          draftHexes = null;
-          const selectBtn = document.getElementById('btn-select');
-          selectBtn.textContent = 'Select';
-          selectBtn.classList.remove('done-btn');
-          document.getElementById('map').classList.remove('select-active');
-          document.getElementById('btn-cancel-select').classList.remove('visible');
-        }
-
+        if (selectMode) exitSelectMode(true);
         revealedHexes = new Set(imported);
         saveRevealedHexes();
         resetMilestoneBaseline(revealedHexes.size);
@@ -904,42 +945,13 @@ document.getElementById('menu-load').addEventListener('click', () => {
   fileInput.click();
 });
 
-const soundBtn = document.getElementById('menu-sound');
-soundBtn.textContent = `Sound: ${soundOn ? 'on' : 'off'}`;
-soundBtn.addEventListener('click', () => {
-  const turningOn = !soundOn;
-  if (turningOn) {
-    soundOn = true;
-    playStartSound();
-  } else {
-    playStopSound();
-    soundOn = false;
-  }
-  try { localStorage.setItem(SOUND_KEY, String(soundOn)); } catch (e) { }
-  soundBtn.textContent = `Sound: ${soundOn ? 'on' : 'off'}`;
-});
-
-const milestoneBtn = document.getElementById('menu-milestone');
-milestoneBtn.textContent = `Milestone: ${milestoneStep}`;
-milestoneBtn.addEventListener('click', () => {
-  const idx = MILESTONE_STEPS.indexOf(milestoneStep);
-  milestoneStep = MILESTONE_STEPS[(idx + 1) % MILESTONE_STEPS.length];
-  try { localStorage.setItem(MILESTONE_STEP_KEY, String(milestoneStep)); } catch (e) { }
-  milestoneBtn.textContent = `Milestone: ${milestoneStep}`;
-  resetMilestoneBaseline(revealedHexes.size);
-  playStartSound();
-});
-
 document.getElementById('menu-clear').addEventListener('click', () => {
   playOpenSound();
   document.getElementById('confirm-overlay').classList.add('open');
 });
 
 document.getElementById('confirm-overlay').addEventListener('click', (e) => {
-  if (e.target.id === 'confirm-overlay') {
-    playCloseSound();
-    document.getElementById('confirm-overlay').classList.remove('open');
-  }
+  if (e.target.id === 'confirm-overlay') { playCloseSound(); document.getElementById('confirm-overlay').classList.remove('open'); }
 });
 document.getElementById('confirm-cancel').addEventListener('click', () => {
   playCloseSound();
@@ -948,37 +960,67 @@ document.getElementById('confirm-cancel').addEventListener('click', () => {
 
 document.getElementById('confirm-ok').addEventListener('click', () => {
   stopTracking();
-
-  if (selectMode) {
-    selectMode = false;
-    draftHexes = null;
-    const selectBtn = document.getElementById('btn-select');
-    selectBtn.textContent = 'Select';
-    selectBtn.classList.remove('done-btn');
-    document.getElementById('map').classList.remove('select-active');
-    document.getElementById('btn-cancel-select').classList.remove('visible');
-  }
+  if (selectMode) exitSelectMode(true);
 
   revealedHexes.clear();
   saveRevealedHexes();
   resetMilestoneBaseline(0);
 
   soundOn = true;
-  try { localStorage.setItem(SOUND_KEY, 'true'); } catch (e) { }
-  soundBtn.textContent = 'Sound: on';
+  try { localStorage.setItem(SOUND_KEY, 'true'); } catch (e) {}
+  soundBtn.textContent = 'Sound: On';
 
   milestoneStep = 500;
-  try { localStorage.setItem(MILESTONE_STEP_KEY, '500'); } catch (e) { }
+  try { localStorage.setItem(MILESTONE_STEP_KEY, '500'); } catch (e) {}
   milestoneBtn.textContent = 'Milestone: 500';
 
-  map.setView([20, 0], 3, { animate: false });
+  currentThemeName = 'default';
+  try { localStorage.setItem(THEME_KEY, 'default'); } catch (e) {}
+  applyTheme('default');
+  themeBtn.textContent = 'Theme: Default';
 
+  map.setView([20, 0], 3, { animate: false });
   redrawFog();
   updateStatusLine();
   playCloseSound();
   document.getElementById('confirm-overlay').classList.remove('open');
   document.getElementById('menu-overlay').classList.remove('open');
+  document.getElementById('menu-overlay').classList.remove('settings-open');
 });
+
+const soundBtn = document.getElementById('menu-sound');
+soundBtn.textContent = `Sound: ${soundOn ? 'On' : 'Off'}`;
+soundBtn.addEventListener('click', () => {
+  const turningOn = !soundOn;
+  if (turningOn) { soundOn = true; playStartSound(); }
+  else { playStopSound(); soundOn = false; }
+  try { localStorage.setItem(SOUND_KEY, String(soundOn)); } catch (e) {}
+  soundBtn.textContent = `Sound: ${soundOn ? 'On' : 'Off'}`;
+});
+
+const milestoneBtn = document.getElementById('menu-milestone');
+milestoneBtn.textContent = `Milestone: ${milestoneStep}`;
+milestoneBtn.addEventListener('click', () => {
+  const idx = MILESTONE_STEPS.indexOf(milestoneStep);
+  milestoneStep = MILESTONE_STEPS[(idx + 1) % MILESTONE_STEPS.length];
+  try { localStorage.setItem(MILESTONE_STEP_KEY, String(milestoneStep)); } catch (e) {}
+  milestoneBtn.textContent = `Milestone: ${milestoneStep}`;
+  resetMilestoneBaseline(revealedHexes.size);
+  playStartSound();
+});
+
+const themeBtn = document.getElementById('menu-theme');
+themeBtn.textContent = `Theme: ${THEMES[currentThemeName].name}`;
+themeBtn.addEventListener('click', () => {
+  const idx = THEME_ORDER.indexOf(currentThemeName);
+  const nextName = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
+  applyTheme(nextName);
+  try { localStorage.setItem(THEME_KEY, nextName); } catch (e) {}
+  themeBtn.textContent = `Theme: ${THEMES[nextName].name}`;
+  playStartSound();
+});
+
+applyTheme(currentThemeName);
 
 syncLayout(true);
 window.addEventListener('resize', () => syncLayout(true));
