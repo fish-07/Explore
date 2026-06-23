@@ -225,7 +225,7 @@
   <div id="settings-sheet">
     <div id="settings-handle"></div>
     <button class="menu-btn back-btn" id="settings-back">Back</button>
-    <button class="menu-btn" id="menu-milestone">Milestone: 500</button>
+    <button class="menu-btn" id="menu-milestone">Notify every: 500</button>
     <button class="menu-btn" id="menu-sound">Sound: On</button>
     <button class="menu-btn" id="menu-theme">Theme: Default</button>
   </div>
@@ -387,89 +387,100 @@ const THEMES = {
     '--text': '#fff',
     '--accent': '#00a0e0',
     '--danger': '#c00000',
-    '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
+    '--font': '"Helvetica Neue", Helvetica, Arial, sans-serif',
+    locationColor: '#00a0e0',
+  },
+  light: {
+    name: 'Light',
+    '--bg': '#fff',
+    '--surface': '#d0d0d0',
+    '--muted': '#b0b0b0',
+    '--text': '#101010',
+    '--accent': '#00a0e0',
+    '--danger': '#c00000',
+    '--font': '"Helvetica Neue", Helvetica, Arial, sans-serif',
     locationColor: '#00a0e0',
   },
   spring: {
     name: 'Spring',
     '--bg': '#081808',
-    '--surface': '#103010',
-    '--muted': '#206020',
-    '--text': '#c0f0c0',
-    '--accent': '#f080b0',
+    '--surface': '#102010',
+    '--muted': '#284830',
+    '--text': '#98a898',
+    '--accent': '#f08040',
     '--danger': '#d04040',
-    '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
-    locationColor: '#f080b0',
+    '--font': 'Futura, "Trebuchet MS", Arial, sans-serif',
+    locationColor: '#f08040',
   },
   summer: {
     name: 'Summer',
     '--bg': '#001830',
     '--surface': '#002848',
-    '--muted': '#004080',
-    '--text': '#ffe880',
-    '--accent': '#40b8f0',
-    '--danger': '#e06030',
-    '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
-    locationColor: '#40b8f0',
+    '--muted': '#004070',
+    '--text': '#fff',
+    '--accent': '#c08000',
+    '--danger': '#d05800',
+    '--font': 'Futura, "Trebuchet MS", Arial, sans-serif',
+    locationColor: '#00a0e0',
   },
   autumn: {
     name: 'Autumn',
-    '--bg': '#180800',
-    '--surface': '#301000',
-    '--muted': '#602010',
-    '--text': '#f0a040',
-    '--accent': '#e06010',
-    '--danger': '#902020',
-    '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
-    locationColor: '#f0c060',
+    '--bg': '#201000',
+    '--surface': '#382010',
+    '--muted': '#604030',
+    '--text': '#e8c098',
+    '--accent': '#d08030',
+    '--danger': '#c03010',
+    '--font': 'Georgia, "Times New Roman", serif',
+    locationColor: '#f0a050',
   },
   winter: {
     name: 'Winter',
     '--bg': '#e8f0f8',
     '--surface': '#c0d8f0',
     '--muted': '#80b0e0',
-    '--text': '#082060',
+    '--text': '#003068',
     '--accent': '#0060d0',
     '--danger': '#c02080',
-    '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
+    '--font': 'Georgia, "Times New Roman", serif',
     locationColor: '#0080f0',
   },
-  one: {
-    name: 'One',
-    '--bg': '#080810',
-    '--surface': '#100820',
-    '--muted': '#201840',
-    '--text': '#c0b0f0',
-    '--accent': '#8040f0',
-    '--danger': '#e02060',
-    '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
-    locationColor: '#a060f0',
+  orange: {
+    name: 'Orange',
+    '--bg': '#180c00',
+    '--surface': '#281800',
+    '--muted': '#482800',
+    '--text': '#fff',
+    '--accent': '#ff6800',
+    '--danger': '#c00020',
+    '--font': '"Courier New", Courier, monospace',
+    locationColor: '#ff6800',
   },
-  two: {
-    name: 'Two',
-    '--bg': '#201000',
-    '--surface': '#382010',
-    '--muted': '#604030',
-    '--text': '#f0d8a0',
-    '--accent': '#d08030',
-    '--danger': '#c03010',
-    '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
-    locationColor: '#f0a050',
+  blue: {
+    name: 'Blue',
+    '--bg': '#101820',
+    '--surface': '#182030',
+    '--muted': '#304050',
+    '--text': '#A0D0E8',
+    '--accent': '#40a0d0',
+    '--danger': '#d03030',
+    '--font': '"Courier New", Courier, monospace',
+    locationColor: '#00a0e0',
   },
-  three: {
-    name: 'Three',
-    '--bg': '#000000',
-    '--surface': '#080808',
-    '--muted': '#181818',
-    '--text': '#e0f8f8',
-    '--accent': '#00e0d0',
-    '--danger': '#e00030',
-    '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
-    locationColor: '#00e0d0',
+  magenta: {
+    name: 'Magenta',
+    '--bg': '#180810',
+    '--surface': '#281020',
+    '--muted': '#482040',
+    '--text': '#f8b0d0',
+    '--accent': '#f060a0',
+    '--danger': '#d84050',
+    '--font': '"Courier New", Courier, monospace',
+    locationColor: '#f060a0',
   },
 };
 
-const THEME_ORDER = ['default', 'spring', 'summer', 'autumn', 'winter', 'one', 'two', 'three'];
+const THEME_ORDER = ['default', 'light', 'spring', 'summer', 'autumn', 'winter', 'orange', 'blue', 'magenta'];
 const THEME_KEY = 'hexplore_theme_v1';
 let currentThemeName = 'default';
 try {
@@ -484,10 +495,7 @@ function applyTheme(name) {
   for (const [prop, val] of Object.entries(theme)) {
     if (prop.startsWith('--')) root.style.setProperty(prop, val);
   }
-  const themeMeta = document.querySelector('meta[name="theme-color"]');
-  themeMeta.setAttribute('content', theme['--bg']);
-  themeMeta.remove();
-  document.head.appendChild(themeMeta);
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', theme['--bg']);
   if (fogLayer) fogLayer.setAttribute('fill', theme['--bg']);
   if (borderLayer) borderLayer.setAttribute('fill', theme['--bg']);
   rebuildUserLocationIcon(theme.locationColor);
@@ -1008,7 +1016,7 @@ document.getElementById('confirm-ok').addEventListener('click', () => {
 
   milestoneStep = 500;
   try { localStorage.setItem(MILESTONE_STEP_KEY, '500'); } catch (e) {}
-  milestoneBtn.textContent = 'Milestone: 500';
+  milestoneBtn.textContent = 'Notify every: 500';
 
   currentThemeName = 'default';
   try { localStorage.setItem(THEME_KEY, 'default'); } catch (e) {}
@@ -1035,12 +1043,12 @@ soundBtn.addEventListener('click', () => {
 });
 
 const milestoneBtn = document.getElementById('menu-milestone');
-milestoneBtn.textContent = `Milestone: ${milestoneStep}`;
+milestoneBtn.textContent = `Notify every: ${milestoneStep}`;
 milestoneBtn.addEventListener('click', () => {
   const idx = MILESTONE_STEPS.indexOf(milestoneStep);
   milestoneStep = MILESTONE_STEPS[(idx + 1) % MILESTONE_STEPS.length];
   try { localStorage.setItem(MILESTONE_STEP_KEY, String(milestoneStep)); } catch (e) {}
-  milestoneBtn.textContent = `Milestone: ${milestoneStep}`;
+  milestoneBtn.textContent = `Notify every: ${milestoneStep}`;
   resetMilestoneBaseline(revealedHexes.size);
   if (milestoneStep === 'Off') playStopSound(); else playStartSound();
 });
