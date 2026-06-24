@@ -1116,11 +1116,13 @@ document.getElementById('btn-cancel-select').addEventListener('click', () => {
 function closeAllMenus() {
   playCloseSound();
   document.getElementById('menu-overlay').classList.remove('open', 'settings-open', 'places-open');
+  applyTheme(currentThemeName);
 }
 
 function closeMenu() {
   playCloseSound();
   document.getElementById('menu-overlay').classList.remove('open', 'settings-open', 'places-open');
+  applyTheme(currentThemeName);
 }
 
 function openSettings() {
@@ -1298,7 +1300,7 @@ window.addEventListener('resize', () => syncLayout(true));
 window.addEventListener('orientationchange', () => {
   syncLayout(true);
   setTimeout(() => syncLayout(true), 50);
-  setTimeout(() => syncLayout(true), 300);
+  setTimeout(() => { syncLayout(true); applyTheme(currentThemeName); }, 300);
 });
 updateStatusLine();
 </script>
