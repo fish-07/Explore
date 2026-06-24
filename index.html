@@ -12,197 +12,133 @@
 <title>Hexplore</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-
-  html, body {
-    touch-action: none;
-    overscroll-behavior: none;
-  }
-
+  html, body { touch-action: none; overscroll-behavior: none; }
   :root {
-    --bg: #101010;
-    --surface: #202020;
-    --muted: #404040;
-    --text: #fff;
-    --accent: #00a0e0;
-    --danger: #c00000;
+    --bg: #101010; --surface: #202020; --muted: #404040; --text: #fff;
+    --accent: #00a0e0; --danger: #c00000;
     --font: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
-    --safe-t: env(safe-area-inset-top, 0px);
-    --safe-b: env(safe-area-inset-bottom, 0px);
-    --safe-l: env(safe-area-inset-left, 0px);
-    --safe-r: env(safe-area-inset-right, 0px);
+    --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-l: env(safe-area-inset-left, 0px); --safe-r: env(safe-area-inset-right, 0px);
   }
-
   html { background: var(--bg); }
-
-  body {
-    width: 100%; height: 100%; overflow: hidden;
-    background: var(--bg);
-    font-family: var(--font);
-    color: var(--text);
-    user-select: none; -webkit-user-select: none;
-  }
-
-  #map, #fog-svg {
-    position: fixed;
-    top: var(--safe-t);
-    left: var(--safe-l);
-    right: var(--safe-r);
-    bottom: var(--bar-height, 140px);
-  }
-  #fog-svg {
-    pointer-events: none;
-    z-index: 450;
-    overflow: visible;
-  }
-
+  body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: var(--font); color: var(--text); user-select: none; -webkit-user-select: none; }
+  #map, #fog-svg { position: fixed; top: var(--safe-t); left: var(--safe-l); right: var(--safe-r); bottom: var(--bar-height, 140px); }
+  #fog-svg { pointer-events: none; z-index: 450; overflow: visible; width: 100%; height: 100%; }
   #bar {
-    position: fixed; left: 0; right: 0; bottom: 0;
-    background: var(--surface);
-    border-top: 1px solid var(--muted);
-    display: flex; flex-direction: column; align-items: center;
+    position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface);
+    border-top: 1px solid var(--muted); display: flex; flex-direction: column; align-items: center;
     padding: 10px calc(15px + var(--safe-r)) 0 calc(15px + var(--safe-l));
-    padding-bottom: max(35px, calc(var(--safe-b) + 15px));
-    gap: 10px;
-    z-index: 500;
+    padding-bottom: max(35px, calc(var(--safe-b) + 15px)); gap: 10px; z-index: 500;
   }
-  #status-line {
-    font-size: 18px; font-weight: 600;
-    color: var(--accent); letter-spacing: .01em;
-    padding: 2px 8px;
-  }
+  #status-line { font-size: 18px; font-weight: 600; color: var(--accent); letter-spacing: .01em; padding: 2px 8px; }
   #button-row { display: flex; gap: 10px; width: 100%; }
   .bar-btn {
-    flex: 1; height: 60px;
-    border: none; outline: none; border-radius: 15px;
-    background: var(--muted); color: var(--text);
-    font-family: var(--font);
-    font-size: 15px; font-weight: 600; cursor: pointer;
-    transition: background .15s, transform .1s;
-    -webkit-appearance: none;
+    flex: 1; height: 60px; border: none; outline: none; border-radius: 15px;
+    background: var(--muted); color: var(--text); font-family: var(--font);
+    font-size: 18px; font-weight: 600; cursor: pointer;
+    transition: background .15s, transform .1s; -webkit-appearance: none;
   }
   .bar-btn:active { transform: scale(.95); }
   .bar-btn.active { background: var(--accent); color: #fff; }
   .bar-btn.done-btn { background: var(--accent); color: #fff; }
-
   #btn-follow {
-    display: none;
-    position: fixed;
-    top: calc(var(--safe-t) + 15px);
-    left: calc(var(--safe-l) + 15px);
-    width: 110px; height: 40px;
-    border: none; outline: none; border-radius: 15px;
-    background: var(--muted); color: var(--text);
-    font-family: var(--font);
-    font-size: 15px; font-weight: 600; cursor: pointer;
-    transition: background .15s, transform .1s;
-    -webkit-appearance: none;
-    z-index: 480;
+    display: none; position: fixed; top: calc(var(--safe-t) + 15px); left: calc(var(--safe-l) + 15px);
+    width: 110px; height: 40px; border: none; outline: none; border-radius: 15px;
+    background: var(--muted); color: var(--text); font-family: var(--font);
+    font-size: 18px; font-weight: 600; cursor: pointer;
+    transition: background .15s, transform .1s; -webkit-appearance: none; z-index: 480;
   }
   #btn-follow.visible { display: block; }
   #btn-follow:active { transform: scale(.95); }
   #btn-follow.active { background: var(--accent); color: #fff; }
-
   #btn-cancel-select {
-    display: none;
-    position: fixed;
-    top: calc(var(--safe-t) + 15px);
-    right: calc(var(--safe-r) + 15px);
-    width: 110px; height: 40px;
-    border: none; outline: none; border-radius: 15px;
-    background: var(--muted); color: var(--text);
-    font-family: var(--font);
-    font-size: 15px; font-weight: 600; cursor: pointer;
-    transition: background .15s, transform .1s;
-    -webkit-appearance: none;
-    z-index: 480;
+    display: none; position: fixed; top: calc(var(--safe-t) + 15px); right: calc(var(--safe-r) + 15px);
+    width: 110px; height: 40px; border: none; outline: none; border-radius: 15px;
+    background: var(--muted); color: var(--text); font-family: var(--font);
+    font-size: 18px; font-weight: 600; cursor: pointer;
+    transition: background .15s, transform .1s; -webkit-appearance: none; z-index: 480;
   }
   #btn-cancel-select.visible { display: block; }
   #btn-cancel-select:active { transform: scale(.95); }
-
   #menu-overlay { display: none; position: fixed; inset: 0; z-index: 600; }
   #menu-overlay.open { display: block; }
   #menu-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
-
-  #menu-sheet, #settings-sheet {
-    position: absolute; left: 0; right: 0; bottom: 0;
-    background: var(--surface);
+  #menu-sheet, #settings-sheet, #places-sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface);
     border-radius: 20px 20px 0 0;
     padding: 15px calc(15px + var(--safe-r)) 0 calc(15px + var(--safe-l));
     padding-bottom: max(35px, calc(var(--safe-b) + 15px));
-    display: flex; flex-direction: column; gap: 10px;
-    transition: transform .25s ease;
+    display: flex; flex-direction: column; gap: 10px; transition: transform .25s ease;
   }
-  #settings-sheet {
-    transform: translateX(100%);
-    display: flex;
-  }
+  #menu-sheet { transform: translateX(0); }
+  #settings-sheet { transform: translateX(100%); }
+  #places-sheet { transform: translateX(100%); max-height: 80vh; }
   #menu-overlay.open #menu-sheet { transform: translateX(0); }
   #menu-overlay.settings-open #menu-sheet { transform: translateX(-100%); }
   #menu-overlay.settings-open #settings-sheet { transform: translateX(0); }
-
-  #menu-handle, #settings-handle {
-    width: 40px; height: 4px; border-radius: 2px;
-    background: var(--muted); align-self: center; margin-bottom: 4px;
+  #menu-overlay.places-open #menu-sheet { transform: translateX(-100%); }
+  #menu-overlay.places-open #places-sheet { transform: translateX(0); }
+  #menu-handle, #settings-handle, #places-handle {
+    width: 40px; height: 4px; border-radius: 2px; background: var(--muted);
+    align-self: center; margin-bottom: 4px; flex-shrink: 0;
   }
   .menu-btn {
-    width: 100%; height: 55px;
-    border: none; outline: none; border-radius: 15px;
-    background: var(--muted); color: var(--text);
-    font-family: var(--font);
-    font-size: 18px; font-weight: 600; cursor: pointer;
-    -webkit-appearance: none;
-    transition: background .15s, transform .1s;
+    width: 100%; height: 55px; border: none; outline: none; border-radius: 15px;
+    background: var(--muted); color: var(--text); font-family: var(--font);
+    font-size: 18px; font-weight: 600; cursor: pointer; -webkit-appearance: none;
+    transition: background .15s, transform .1s; flex-shrink: 0;
   }
   .menu-btn:active { transform: scale(.95); }
   .menu-btn.danger { background: var(--danger); color: #fff; }
   .menu-btn.back-btn { background: var(--accent); color: #fff; }
-
+  .menu-btn.disabled { opacity: 0.35; pointer-events: none; }
+  #places-list {
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px;
+  }
+  .place-item {
+    width: 100%; min-height: 55px; border: none; outline: none; border-radius: 15px;
+    background: var(--muted); color: var(--text); font-family: var(--font);
+    font-size: 18px; font-weight: 600; cursor: pointer; -webkit-appearance: none;
+    transition: background .15s, transform .1s;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; flex-shrink: 0;
+  }
+  .place-item:active { transform: scale(.95); }
+  .place-item-name { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .place-item-count { font-size: 18px; font-weight: 600; color: var(--accent); margin-left: 10px; white-space: nowrap; flex-shrink: 0; }
   #confirm-overlay {
     display: none; position: fixed; inset: 0; z-index: 700;
-    background: rgba(0,0,0,.65);
-    align-items: center; justify-content: center;
+    background: rgba(0,0,0,.65); align-items: center; justify-content: center;
   }
   #confirm-overlay.open { display: flex; }
   #confirm-box {
-    background: var(--surface); border-radius: 20px;
-    padding: 28px 20px 20px;
-    width: min(300px, 90vw);
-    display: flex; flex-direction: column; gap: 15px; align-items: center;
+    background: var(--surface); border-radius: 20px; padding: 28px 20px 20px;
+    width: min(300px, 90vw); display: flex; flex-direction: column; gap: 15px; align-items: center;
   }
   #confirm-box p { font-size: 20px; font-weight: 700; text-align: center; }
   .confirm-row { display: flex; gap: 10px; width: 100%; }
   .confirm-row button {
-    flex: 1; height: 50px;
-    border: none; outline: none; border-radius: 15px;
-    font-family: var(--font);
-    font-size: 16px; font-weight: 600; cursor: pointer;
-    -webkit-appearance: none;
+    flex: 1; height: 50px; border: none; outline: none; border-radius: 15px;
+    font-family: var(--font); font-size: 16px; font-weight: 600; cursor: pointer; -webkit-appearance: none;
   }
   #confirm-cancel { background: var(--muted); color: var(--text); }
   #confirm-ok { background: var(--danger); color: #fff; }
-
   .leaflet-container.select-active { cursor: pointer !important; }
   .leaflet-container.select-active .leaflet-grab { cursor: pointer !important; }
-
-  .leaflet-control-attribution {
-    background: rgba(0,0,0,0.5) !important;
-    color: #aaa !important;
-  }
+  .leaflet-control-attribution { background: rgba(0,0,0,0.5) !important; color: #c0c0c0 !important; }
   .leaflet-control-attribution a { color: var(--accent) !important; }
 </style>
 </head>
 <body>
-
 <div id="probe-t" style="position:fixed;top:0;left:0;width:1px;height:env(safe-area-inset-top,0px);visibility:hidden;"></div>
 <div id="probe-b" style="position:fixed;bottom:0;left:0;width:1px;height:env(safe-area-inset-bottom,0px);visibility:hidden;"></div>
 <div id="probe-l" style="position:fixed;top:0;left:0;width:env(safe-area-inset-left,0px);height:1px;visibility:hidden;"></div>
 <div id="probe-r" style="position:fixed;top:0;right:0;width:env(safe-area-inset-right,0px);height:1px;visibility:hidden;"></div>
-
 <div id="map"></div>
 <svg id="fog-svg" xmlns="http://www.w3.org/2000/svg"></svg>
 <button id="btn-follow">Follow</button>
 <button id="btn-cancel-select">Cancel</button>
-
 <div id="bar">
   <div id="status-line">0 hexagons</div>
   <div id="button-row">
@@ -211,12 +147,12 @@
     <button class="bar-btn" id="btn-select">Select</button>
   </div>
 </div>
-
 <div id="menu-overlay">
   <div id="menu-backdrop"></div>
   <div id="menu-sheet">
     <div id="menu-handle"></div>
     <button class="menu-btn back-btn" id="menu-back">Back</button>
+    <button class="menu-btn" id="menu-places-open">Places</button>
     <button class="menu-btn" id="menu-settings-open">Settings</button>
     <button class="menu-btn" id="menu-save">Export</button>
     <button class="menu-btn" id="menu-load">Import</button>
@@ -229,8 +165,12 @@
     <button class="menu-btn" id="menu-sound">Sound: On</button>
     <button class="menu-btn" id="menu-theme">Theme: Default</button>
   </div>
+  <div id="places-sheet">
+    <div id="places-handle"></div>
+    <button class="menu-btn back-btn" id="places-back">Back</button>
+    <div id="places-list"></div>
+  </div>
 </div>
-
 <div id="confirm-overlay">
   <div id="confirm-box">
     <p>Are you sure?</p>
@@ -240,7 +180,6 @@
     </div>
   </div>
 </div>
-
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -249,22 +188,15 @@
 const CALIBRATION_LATITUDE = 35;
 const METRES_PER_DEGREE = 111320;
 const TARGET_HEX_METRES = 100;
-
 const pxPerMetreAtEquator = (256 / 360) / METRES_PER_DEGREE;
 const pxPerMetreAtCalibration = pxPerMetreAtEquator / Math.cos(CALIBRATION_LATITUDE * Math.PI / 180);
 const HEX_RADIUS_PX0 = (TARGET_HEX_METRES / 2) * pxPerMetreAtCalibration;
 
 function hexKey(q, r) { return `${q},${r}`; }
-function parseHexKey(key) {
-  const [q, r] = key.split(',').map(Number);
-  return { q, r };
-}
+function parseHexKey(key) { const [q, r] = key.split(',').map(Number); return { q, r }; }
 
 function axialToPixel0(q, r) {
-  return {
-    x: HEX_RADIUS_PX0 * 1.5 * q,
-    y: HEX_RADIUS_PX0 * Math.sqrt(3) * (r + q / 2),
-  };
+  return { x: HEX_RADIUS_PX0 * 1.5 * q, y: HEX_RADIUS_PX0 * Math.sqrt(3) * (r + q / 2) };
 }
 
 function latLngToHexKey(lat, lng) {
@@ -309,40 +241,43 @@ function hexSvgPath(q, r) {
   return `M ${points} Z`;
 }
 
-const map = L.map('map', {
-  center: [20, 0],
-  zoom: 3,
-  zoomControl: false,
-  attributionControl: true,
-});
+function hexKeyToLatLng(key) {
+  const { q, r } = parseHexKey(key);
+  const { x, y } = axialToPixel0(q, r);
+  return map.unproject(L.point(x, y), 0);
+}
 
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const map = L.map('map', { center: [20, 0], zoom: 3, zoomControl: false, attributionControl: true });
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap contributors',
-  maxZoom: 19,
+  attribution: '© OpenStreetMap contributors', maxZoom: 19,
 }).addTo(map);
 
 function syncBarHeight() {
-  const height = document.getElementById('bar').getBoundingClientRect().height;
-  document.documentElement.style.setProperty('--bar-height', height + 'px');
+  document.documentElement.style.setProperty('--bar-height', document.getElementById('bar').getBoundingClientRect().height + 'px');
 }
 
 function syncSafeArea() {
   const root = document.documentElement;
-  const top = document.getElementById('probe-t').getBoundingClientRect().height;
-  const bottom = document.getElementById('probe-b').getBoundingClientRect().height;
-  const left = document.getElementById('probe-l').getBoundingClientRect().width;
-  const right = document.getElementById('probe-r').getBoundingClientRect().width;
-  root.style.setProperty('--safe-t', top + 'px');
-  root.style.setProperty('--safe-b', bottom + 'px');
-  root.style.setProperty('--safe-l', left + 'px');
-  root.style.setProperty('--safe-r', right + 'px');
+  root.style.setProperty('--safe-t', document.getElementById('probe-t').getBoundingClientRect().height + 'px');
+  root.style.setProperty('--safe-b', document.getElementById('probe-b').getBoundingClientRect().height + 'px');
+  root.style.setProperty('--safe-l', document.getElementById('probe-l').getBoundingClientRect().width + 'px');
+  root.style.setProperty('--safe-r', document.getElementById('probe-r').getBoundingClientRect().width + 'px');
 }
 
 function syncFogSvgSize() {
   const svg = document.getElementById('fog-svg');
   const rect = svg.getBoundingClientRect();
-  svg.setAttribute('width', Math.ceil(rect.width));
-  svg.setAttribute('height', Math.ceil(rect.height));
+  svg.setAttribute('width', Math.ceil(rect.width) || window.innerWidth);
+  svg.setAttribute('height', Math.ceil(rect.height) || (window.innerHeight - 140));
 }
 
 function syncLayout(includeFog) {
@@ -360,8 +295,8 @@ function syncLayout(includeFog) {
   }
 }
 
-let revealedHexes = new Set();
-let draftHexes = null;
+let revealedHexagons = new Set();
+let draftHexagons = null;
 let trackingOn = false;
 let selectMode = false;
 let userLatLng = null;
@@ -374,127 +309,32 @@ let userMarker = null;
 let userAccuracyCircle = null;
 let fogLayer = null;
 let borderLayer = null;
-let cachedBorderHexes = null;
+let cachedBorderHexagons = null;
 
 syncLayout(false);
 
 const THEMES = {
-  default: {
-    name: 'Default',
-    '--bg': '#101010',
-    '--surface': '#202020',
-    '--muted': '#404040',
-    '--text': '#fff',
-    '--accent': '#00a0e0',
-    '--danger': '#c00000',
-    '--font': '"Helvetica Neue", Helvetica, Arial, sans-serif',
-    locationColor: '#00a0e0',
-  },
-  spring: {
-    name: 'Spring',
-    '--bg': '#081808',
-    '--surface': '#102010',
-    '--muted': '#284830',
-    '--text': '#709870',
-    '--accent': '#f08040',
-    '--danger': '#d04040',
-    '--font': 'Futura, "Trebuchet MS", Arial, sans-serif',
-    locationColor: '#f08040',
-  },
-  summer: {
-    name: 'Summer',
-    '--bg': '#001830',
-    '--surface': '#002848',
-    '--muted': '#004070',
-    '--text': '#fff',
-    '--accent': '#d09000',
-    '--danger': '#d04000',
-    '--font': 'Futura, "Trebuchet MS", Arial, sans-serif',
-    locationColor: '#00a0e0',
-  },
-  autumn: {
-    name: 'Autumn',
-    '--bg': '#201000',
-    '--surface': '#382010',
-    '--muted': '#604030',
-    '--text': '#e8c098',
-    '--accent': '#d08030',
-    '--danger': '#c85820',
-    '--font': 'Georgia, "Times New Roman", serif',
-    locationColor: '#f0a050',
-  },
-  winter: {
-    name: 'Winter',
-    '--bg': '#e8f0f8',
-    '--surface': '#c0d8f0',
-    '--muted': '#80b0e0',
-    '--text': '#003068',
-    '--accent': '#0060d0',
-    '--danger': '#c02080',
-    '--font': 'Georgia, "Times New Roman", serif',
-    locationColor: '#0080f0',
-  },
-  orange: {
-    name: 'Orange',
-    '--bg': '#180c00',
-    '--surface': '#281800',
-    '--muted': '#482800',
-    '--text': '#fff',
-    '--accent': '#ff6800',
-    '--danger': '#c00020',
-    '--font': '"Courier New", Courier, monospace',
-    locationColor: '#ff6800',
-  },
-  blue: {
-    name: 'Blue',
-    '--bg': '#101820',
-    '--surface': '#182030',
-    '--muted': '#304050',
-    '--text': '#A0D0E8',
-    '--accent': '#40a0d0',
-    '--danger': '#d03030',
-    '--font': '"Courier New", Courier, monospace',
-    locationColor: '#00a0e0',
-  },
-  magenta: {
-    name: 'Magenta',
-    '--bg': '#180810',
-    '--surface': '#281020',
-    '--muted': '#482040',
-    '--text': '#f8b0d0',
-    '--accent': '#f060a0',
-    '--danger': '#d84050',
-    '--font': '"Courier New", Courier, monospace',
-    locationColor: '#f060a0',
-  },
-  light: {
-    name: 'Light',
-    '--bg': '#fff',
-    '--surface': '#e0e0e0',
-    '--muted': '#c0c0c0',
-    '--text': '#101010',
-    '--accent': '#00a0e0',
-    '--danger': '#c00000',
-    '--font': '"Helvetica Neue", Helvetica, Arial, sans-serif',
-    locationColor: '#00a0e0',
-  },
+  default: { name: 'Default', '--bg': '#101010', '--surface': '#202020', '--muted': '#404040', '--text': '#fff', '--accent': '#00a0e0', '--danger': '#c00000', '--font': '"Helvetica Neue", Helvetica, Arial, sans-serif', locationColor: '#00a0e0' },
+  spring: { name: 'Spring', '--bg': '#081808', '--surface': '#102010', '--muted': '#284830', '--text': '#709870', '--accent': '#f08040', '--danger': '#d04040', '--font': 'Futura, "Trebuchet MS", Arial, sans-serif', locationColor: '#f08040' },
+  summer: { name: 'Summer', '--bg': '#001830', '--surface': '#002848', '--muted': '#004070', '--text': '#fff', '--accent': '#d09000', '--danger': '#d04000', '--font': 'Futura, "Trebuchet MS", Arial, sans-serif', locationColor: '#00a0e0' },
+  autumn: { name: 'Autumn', '--bg': '#201000', '--surface': '#382010', '--muted': '#604030', '--text': '#e8c098', '--accent': '#d08030', '--danger': '#c85820', '--font': 'Georgia, "Times New Roman", serif', locationColor: '#f0a050' },
+  winter: { name: 'Winter', '--bg': '#e8f0f8', '--surface': '#c0d8f0', '--muted': '#80b0e0', '--text': '#003068', '--accent': '#0060d0', '--danger': '#c02080', '--font': 'Georgia, "Times New Roman", serif', locationColor: '#0080f0' },
+  orange: { name: 'Orange', '--bg': '#180c00', '--surface': '#281800', '--muted': '#482800', '--text': '#fff', '--accent': '#ff6800', '--danger': '#c00020', '--font': '"Courier New", Courier, monospace', locationColor: '#ff6800' },
+  blue: { name: 'Blue', '--bg': '#101820', '--surface': '#182030', '--muted': '#304050', '--text': '#A0D0E8', '--accent': '#40a0d0', '--danger': '#d03030', '--font': '"Courier New", Courier, monospace', locationColor: '#00a0e0' },
+  magenta: { name: 'Magenta', '--bg': '#180810', '--surface': '#281020', '--muted': '#482040', '--text': '#f8b0d0', '--accent': '#f060a0', '--danger': '#d84050', '--font': '"Courier New", Courier, monospace', locationColor: '#f060a0' },
+  light: { name: 'Light', '--bg': '#fff', '--surface': '#e0e0e0', '--muted': '#c0c0c0', '--text': '#101010', '--accent': '#00a0e0', '--danger': '#c00000', '--font': '"Helvetica Neue", Helvetica, Arial, sans-serif', locationColor: '#00a0e0' },
 };
 
 const THEME_ORDER = ['default', 'spring', 'summer', 'autumn', 'winter', 'orange', 'blue', 'magenta', 'light'];
 const THEME_KEY = 'hexplore_theme_v1';
 let currentThemeName = 'default';
-try {
-  const saved = localStorage.getItem(THEME_KEY);
-  if (saved && THEMES[saved]) currentThemeName = saved;
-} catch (e) {}
+try { const s = localStorage.getItem(THEME_KEY); if (s && THEMES[s]) currentThemeName = s; } catch (e) {}
 
 function applyTheme(name) {
   const theme = THEMES[name] || THEMES.default;
   currentThemeName = name;
   const root = document.documentElement;
-  for (const [prop, val] of Object.entries(theme)) {
-    if (prop.startsWith('--')) root.style.setProperty(prop, val);
-  }
+  for (const [prop, val] of Object.entries(theme)) { if (prop.startsWith('--')) root.style.setProperty(prop, val); }
   document.querySelector('meta[name="theme-color"]').setAttribute('content', theme['--bg']);
   if (fogLayer) fogLayer.setAttribute('fill', theme['--bg']);
   if (borderLayer) borderLayer.setAttribute('fill', theme['--bg']);
@@ -510,28 +350,17 @@ function makeLocationIcon(color) {
   return L.divIcon({
     className: '',
     html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 0 8px ${color}cc;"></div>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
+    iconSize: [18, 18], iconAnchor: [9, 9],
   });
 }
 
 const SOUND_KEY = 'hexplore_sound_v1';
 let soundOn = true;
-try {
-  const savedSound = localStorage.getItem(SOUND_KEY);
-  if (savedSound !== null) soundOn = savedSound === 'true';
-} catch (e) {}
+try { const s = localStorage.getItem(SOUND_KEY); if (s !== null) soundOn = s === 'true'; } catch (e) {}
 
 let audioCtx = null;
-
-function createAudioCtx() {
-  return new (window.AudioContext || window.webkitAudioContext)();
-}
-
-function getAudioCtx() {
-  if (!audioCtx || audioCtx.state === 'closed') audioCtx = createAudioCtx();
-  return audioCtx;
-}
+function createAudioCtx() { return new (window.AudioContext || window.webkitAudioContext)(); }
+function getAudioCtx() { if (!audioCtx || audioCtx.state === 'closed') audioCtx = createAudioCtx(); return audioCtx; }
 
 function scheduleTone(ctx, freqStart, freqEnd, duration, volume, startOffset) {
   const startTime = ctx.currentTime + (startOffset || 0);
@@ -541,34 +370,23 @@ function scheduleTone(ctx, freqStart, freqEnd, duration, volume, startOffset) {
   osc.frequency.exponentialRampToValueAtTime(freqEnd, startTime + duration);
   gain.gain.setValueAtTime(volume, startTime);
   gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(startTime);
-  osc.stop(startTime + duration);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(startTime); osc.stop(startTime + duration);
 }
 
 function resumeWithTimeout(ctx, ms) {
-  return Promise.race([
-    ctx.resume().then(() => ctx.state),
-    new Promise((resolve) => setTimeout(() => resolve(ctx.state), ms)),
-  ]);
+  return Promise.race([ctx.resume().then(() => ctx.state), new Promise(resolve => setTimeout(() => resolve(ctx.state), ms))]);
 }
 
 function tone(freqStart, freqEnd, duration, volume, startOffset) {
   if (!soundOn) return;
   const ctx = getAudioCtx();
-  if (ctx.state === 'running') {
-    scheduleTone(ctx, freqStart, freqEnd, duration, volume, startOffset);
-    return;
-  }
-  resumeWithTimeout(ctx, 300).then((state) => {
-    if (state === 'running') {
-      scheduleTone(ctx, freqStart, freqEnd, duration, volume, startOffset);
-      return;
-    }
+  if (ctx.state === 'running') { scheduleTone(ctx, freqStart, freqEnd, duration, volume, startOffset); return; }
+  resumeWithTimeout(ctx, 300).then(state => {
+    if (state === 'running') { scheduleTone(ctx, freqStart, freqEnd, duration, volume, startOffset); return; }
     audioCtx = createAudioCtx();
     const freshCtx = audioCtx;
-    resumeWithTimeout(freshCtx, 300).then((freshState) => {
+    resumeWithTimeout(freshCtx, 300).then(freshState => {
       if (freshState === 'running') scheduleTone(freshCtx, freqStart, freqEnd, duration, volume, startOffset);
     });
   });
@@ -584,104 +402,246 @@ const MILESTONE_STEP_KEY = 'hexplore_milestone_step_v1';
 const MILESTONE_STEPS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 'Off'];
 let milestoneStep = 500;
 try {
-  const saved = localStorage.getItem(MILESTONE_STEP_KEY);
-  if (saved !== null) {
-    if (saved === 'Off') milestoneStep = 'Off';
-    else {
-      const parsed = parseInt(saved, 10);
-      if (MILESTONE_STEPS.includes(parsed)) milestoneStep = parsed;
-    }
-  }
+  const s = localStorage.getItem(MILESTONE_STEP_KEY);
+  if (s !== null) { if (s === 'Off') milestoneStep = 'Off'; else { const p = parseInt(s, 10); if (MILESTONE_STEPS.includes(p)) milestoneStep = p; } }
 } catch (e) {}
 
-function getMilestoneBaseline() {
-  try {
-    const saved = localStorage.getItem(MILESTONE_COUNT_KEY);
-    if (saved !== null) return parseInt(saved, 10) || 0;
-  } catch (e) {}
-  return 0;
-}
-
-function setMilestoneBaseline(n) {
-  try { localStorage.setItem(MILESTONE_COUNT_KEY, String(n)); } catch (e) {}
-}
-
+function getMilestoneBaseline() { try { const s = localStorage.getItem(MILESTONE_COUNT_KEY); if (s !== null) return parseInt(s, 10) || 0; } catch (e) {} return 0; }
+function setMilestoneBaseline(n) { try { localStorage.setItem(MILESTONE_COUNT_KEY, String(n)); } catch (e) {} }
 let milestoneBaseline = getMilestoneBaseline();
 
 function checkMilestone(newCount) {
   if (milestoneStep === 'Off') { milestoneBaseline = newCount; setMilestoneBaseline(milestoneBaseline); return; }
   const previousFloor = Math.floor(milestoneBaseline / milestoneStep);
   const newFloor = Math.floor(newCount / milestoneStep);
-  milestoneBaseline = newCount;
-  setMilestoneBaseline(milestoneBaseline);
-  if (newFloor > previousFloor) sendMilestoneNotification(newFloor * milestoneStep);
+  milestoneBaseline = newCount; setMilestoneBaseline(milestoneBaseline);
+  if (newFloor > previousFloor) sendHexagonMilestoneNotification(newFloor * milestoneStep);
 }
 
-function resetMilestoneBaseline(newCount) {
-  milestoneBaseline = newCount;
-  setMilestoneBaseline(milestoneBaseline);
-}
+function resetMilestoneBaseline(newCount) { milestoneBaseline = newCount; setMilestoneBaseline(milestoneBaseline); }
 
-function sendMilestoneNotification(milestone) {
+function sendNotification(body) {
   if (!('Notification' in window)) return;
-  const body = `You have ${milestone} hexagons!`;
   if (Notification.permission === 'granted') {
     new Notification('Hexplore', { body });
   } else if (Notification.permission !== 'denied') {
-    Notification.requestPermission().then((perm) => {
-      if (perm === 'granted') new Notification('Hexplore', { body });
-    });
+    Notification.requestPermission().then(perm => { if (perm === 'granted') new Notification('Hexplore', { body }); });
   }
+}
+
+function sendHexagonMilestoneNotification(milestone) {
+  if (milestoneStep === 'Off') return;
+  sendNotification(`You have ${milestone} hexagons!`);
+}
+
+function sendPlaceDiscoveredNotification(placeName) {
+  if (milestoneStep === 'Off') return;
+  sendNotification(`You have discovered ${placeName}!`);
 }
 
 const STORAGE_KEY = 'hexplore_v1';
 
-function saveRevealedHexes() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...revealedHexes])); } catch (e) {}
+let placesData = new Map();
+
+const NO_LOCATION_KEY = '__no_location__';
+
+function buildSaveObject() {
+  const places = {};
+  for (const [name, val] of placesData) {
+    if (name === NO_LOCATION_KEY) {
+      places[name] = { hexagons: [...val.hexagons] };
+    } else {
+      places[name] = { lat: val.lat, lng: val.lng, hexagons: [...val.hexagons] };
+    }
+  }
+  const lines = Object.entries(places).map(([k, v]) => JSON.stringify(k) + ':' + JSON.stringify(v));
+  return '{' + lines.join(',\n') + '}';
 }
 
-function loadRevealedHexes() {
+function saveAll() {
+  try { localStorage.setItem(STORAGE_KEY, buildSaveObject()); } catch (e) {}
+}
+
+function loadAll() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) revealedHexes = new Set(JSON.parse(saved));
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object') return;
+    placesData = new Map();
+    revealedHexagons = new Set();
+    for (const [name, val] of Object.entries(data)) {
+      if (!val || typeof val !== 'object' || !Array.isArray(val.hexagons)) continue;
+      const hexSet = new Set(val.hexagons);
+      if (name === NO_LOCATION_KEY) {
+        placesData.set(name, { lat: null, lng: null, hexagons: hexSet });
+      } else {
+        placesData.set(name, { lat: val.lat, lng: val.lng, hexagons: hexSet });
+      }
+      for (const key of hexSet) revealedHexagons.add(key);
+    }
   } catch (e) {}
 }
 
-function activeHexes() { return selectMode ? draftHexes : revealedHexes; }
+function activeHexagons() { return selectMode ? draftHexagons : revealedHexagons; }
 
-loadRevealedHexes();
+loadAll();
 
-function snapToRandomRevealedHex() {
-  if (revealedHexes.size === 0) { map.setView([20, 0], 3, { animate: false }); return; }
-  const keys = [...revealedHexes];
+const GEOCODE_DELAY_MS = 1100;
+const MAX_PLACE_DISTANCE_M = 10000;
+const PLACES_THRESHOLD = 50;
+
+const geocodeCache = new Map();
+let geocodeQueue = [];
+let geocodingActive = false;
+
+function updateExportButton() {
+  const btn = document.getElementById('menu-save');
+  btn.classList.toggle('disabled', geocodingActive || geocodeQueue.length > 0);
+}
+
+function nominatimUrl(lat, lng) {
+  return `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10&addressdetails=1`;
+}
+
+function extractPlaceName(data) {
+  if (!data || !data.address) return null;
+  const a = data.address;
+  return a.city || a.town || a.village || a.municipality || a.county || null;
+}
+
+function extractPlaceLatLng(data) {
+  if (!data || data.lat == null || data.lon == null) return null;
+  return { lat: parseFloat(data.lat), lng: parseFloat(data.lon) };
+}
+
+async function geocodeHexagon(key) {
+  if (geocodeCache.has(key)) return geocodeCache.get(key);
+  const latlng = hexKeyToLatLng(key);
+  const lat = latlng.lat, lng = latlng.lng;
+  try {
+    const resp = await fetch(nominatimUrl(lat, lng), { headers: { 'Accept-Language': 'en', 'User-Agent': 'Hexplore/1.0' } });
+    if (!resp.ok) { geocodeCache.set(key, null); return null; }
+    const data = await resp.json();
+    const placeName = extractPlaceName(data);
+    const placeLatlng = extractPlaceLatLng(data);
+    if (!placeName || !placeLatlng) { geocodeCache.set(key, null); return null; }
+    const dist = haversineDistance(lat, lng, placeLatlng.lat, placeLatlng.lng);
+    if (dist > MAX_PLACE_DISTANCE_M) { geocodeCache.set(key, null); return null; }
+    const result = { place: placeName, lat: placeLatlng.lat, lng: placeLatlng.lng };
+    geocodeCache.set(key, result);
+    return result;
+  } catch (e) {
+    geocodeCache.set(key, null);
+    return null;
+  }
+}
+
+function recordHexagonInPlace(key, place, lat, lng, fromImport) {
+  let entry = placesData.get(place);
+  if (!entry) { entry = { lat, lng, hexagons: new Set() }; placesData.set(place, entry); }
+  if (entry.hexagons.has(key)) return;
+  const wasUnlocked = entry.hexagons.size >= PLACES_THRESHOLD;
+  entry.hexagons.add(key);
+  saveAll();
+  const nowUnlocked = entry.hexagons.size >= PLACES_THRESHOLD;
+  if (nowUnlocked) renderPlacesList();
+  if (nowUnlocked && !wasUnlocked && !fromImport) sendPlaceDiscoveredNotification(place);
+}
+
+function enqueueHexagonForPlaces(key, fromImport) {
+  if (geocodeCache.has(key)) {
+    const result = geocodeCache.get(key);
+    if (result) recordHexagonInPlace(key, result.place, result.lat, result.lng, fromImport);
+    return;
+  }
+  for (const [, entry] of placesData) { if (entry.hexagons.has(key)) return; }
+  if (!geocodeQueue.find(item => item.key === key)) geocodeQueue.push({ key, fromImport: !!fromImport });
+  drainGeocodeQueue();
+  updateExportButton();
+}
+
+function drainGeocodeQueue() {
+  if (geocodingActive || geocodeQueue.length === 0) return;
+  geocodingActive = true;
+  async function processNext() {
+    if (geocodeQueue.length === 0) { geocodingActive = false; updateExportButton(); return; }
+    const { key, fromImport } = geocodeQueue.shift();
+    const result = await geocodeHexagon(key);
+    if (result) recordHexagonInPlace(key, result.place, result.lat, result.lng, fromImport);
+    else recordHexagonInPlace(key, NO_LOCATION_KEY, null, null, fromImport);
+    setTimeout(processNext, GEOCODE_DELAY_MS);
+  }
+  processNext();
+}
+
+function reconcilePlacesWithRevealedHexagons() {
+  for (const [name, entry] of placesData) {
+    for (const key of [...entry.hexagons]) {
+      if (!revealedHexagons.has(key)) entry.hexagons.delete(key);
+    }
+    if (entry.hexagons.size === 0) placesData.delete(name);
+  }
+  for (const key of geocodeCache.keys()) {
+    if (!revealedHexagons.has(key)) geocodeCache.delete(key);
+  }
+}
+
+function renderPlacesList() {
+  const list = document.getElementById('places-list');
+  list.querySelectorAll('.place-item').forEach(el => el.remove());
+  const visited = [];
+  for (const [name, data] of placesData) {
+    if (name === NO_LOCATION_KEY) continue;
+    if (data.hexagons.size >= PLACES_THRESHOLD) {
+      visited.push({ name, lat: data.lat, lng: data.lng, count: data.hexagons.size });
+    }
+  }
+  visited.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  for (const place of visited) {
+    const btn = document.createElement('button');
+    btn.className = 'place-item';
+    btn.innerHTML = `<span class="place-item-name">${place.name}</span><span class="place-item-count">${place.count} hexagons</span>`;
+    btn.addEventListener('click', () => {
+      playStartSound();
+      if (followMode) setFollowMode(false);
+      document.getElementById('menu-overlay').classList.remove('open', 'settings-open', 'places-open');
+      map.setView([place.lat, place.lng], 15, { animate: false });
+    });
+    list.appendChild(btn);
+  }
+}
+
+function snapToRandomRevealedHexagon() {
+  if (revealedHexagons.size === 0) { map.setView([20, 0], 3, { animate: false }); return; }
+  const keys = [...revealedHexagons];
   const randomKey = keys[Math.floor(Math.random() * keys.length)];
   const { q, r } = parseHexKey(randomKey);
   const { x, y } = axialToPixel0(q, r);
-  const latLng = map.unproject(L.point(x, y), 0);
-  map.setView(latLng, 15, { animate: false });
+  map.setView(map.unproject(L.point(x, y), 0), 15, { animate: false });
 }
 
-snapToRandomRevealedHex();
+snapToRandomRevealedHexagon();
 
 const fogSvg = document.getElementById('fog-svg');
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const WORLD_RECT = 'M -99999,-99999 L 99999,-99999 L 99999,99999 L -99999,99999 Z ';
 
-function getBorderHexes() {
-  if (cachedBorderHexes) return cachedBorderHexes;
-  cachedBorderHexes = new Set();
-  const hexes = activeHexes();
+function getBorderHexagons() {
+  if (cachedBorderHexagons) return cachedBorderHexagons;
+  cachedBorderHexagons = new Set();
+  const hexes = activeHexagons();
   for (const key of hexes) {
     const { q, r } = parseHexKey(key);
     for (const [nq, nr] of hexNeighbours(q, r)) {
       const nk = hexKey(nq, nr);
-      if (!hexes.has(nk)) cachedBorderHexes.add(nk);
+      if (!hexes.has(nk)) cachedBorderHexagons.add(nk);
     }
   }
-  return cachedBorderHexes;
+  return cachedBorderHexagons;
 }
 
-function invalidateBorderCache() { cachedBorderHexes = null; }
+function invalidateBorderCache() { cachedBorderHexagons = null; }
 
 function ensureFogLayers() {
   if (!fogLayer) {
@@ -703,42 +663,34 @@ function redrawFog() { invalidateBorderCache(); drawFog(); }
 
 function drawFog() {
   ensureFogLayers();
-  const fogOpacity = selectMode ? 0.5 : 0.98;
-  const borderOpacity = 0.5;
-  const hexes = activeHexes();
-  const borders = getBorderHexes();
+  const hexes = activeHexagons();
+  const borders = getBorderHexagons();
   const revealedPaths = [];
-  for (const key of hexes) {
-    const { q, r } = parseHexKey(key);
-    revealedPaths.push(hexSvgPath(q, r));
-  }
+  for (const key of hexes) { const { q, r } = parseHexKey(key); revealedPaths.push(hexSvgPath(q, r)); }
   const borderPaths = [];
-  for (const key of borders) {
-    const { q, r } = parseHexKey(key);
-    borderPaths.push(hexSvgPath(q, r));
-  }
-  fogLayer.setAttribute('fill-opacity', String(fogOpacity));
+  for (const key of borders) { const { q, r } = parseHexKey(key); borderPaths.push(hexSvgPath(q, r)); }
+  fogLayer.setAttribute('fill-opacity', String(selectMode ? 0.5 : 0.98));
   fogLayer.setAttribute('d', WORLD_RECT + revealedPaths.join(' ') + ' ' + borderPaths.join(' '));
-  borderLayer.setAttribute('fill-opacity', String(borderOpacity));
+  borderLayer.setAttribute('fill-opacity', '0.5');
   borderLayer.setAttribute('d', borderPaths.join(' ') || 'M 0 0 Z');
 }
 
 map.on('move zoom viewreset', drawFog);
 
-map.on('click', (e) => {
+map.on('click', e => {
   if (!selectMode) return;
   if (map.getZoom() < 15) return;
-  toggleHex(latLngToHexKey(e.latlng.lat, e.latlng.lng));
+  toggleHexagon(latLngToHexKey(e.latlng.lat, e.latlng.lng));
 });
 
-function toggleHex(key) {
-  if (!selectMode || !draftHexes) return;
+function toggleHexagon(key) {
+  if (!selectMode || !draftHexagons) return;
   if (trackingOn && userLatLng && userAccuracy < 100) {
     const userKey = latLngToHexKey(userLatLng.lat, userLatLng.lng);
-    if (key === userKey && draftHexes.has(key)) return;
+    if (key === userKey && draftHexagons.has(key)) return;
   }
-  if (draftHexes.has(key)) { draftHexes.delete(key); playStopSound(); }
-  else { draftHexes.add(key); playStartSound(); }
+  if (draftHexagons.has(key)) { draftHexagons.delete(key); playStopSound(); }
+  else { draftHexagons.add(key); playStartSound(); }
   redrawFog();
   updateStatusLine();
 }
@@ -746,45 +698,30 @@ function toggleHex(key) {
 function onPositionUpdate(position) {
   const { latitude: lat, longitude: lng, accuracy } = position.coords;
   const isFirstFix = !hasSnappedToUser;
-  userLatLng = { lat, lng };
-  userAccuracy = accuracy;
-
+  userLatLng = { lat, lng }; userAccuracy = accuracy;
   if (!hasSnappedToUser) {
-    hasSnappedToUser = true;
-    isProgrammaticMove = true;
-    map.setView([lat, lng], 17, { animate: false });
-    isProgrammaticMove = false;
+    hasSnappedToUser = true; isProgrammaticMove = true;
+    map.setView([lat, lng], 17, { animate: false }); isProgrammaticMove = false;
   } else if (followMode) {
-    isProgrammaticMove = true;
-    map.panTo([lat, lng], { animate: false });
-    isProgrammaticMove = false;
+    isProgrammaticMove = true; map.panTo([lat, lng], { animate: false }); isProgrammaticMove = false;
   }
-
   const theme = THEMES[currentThemeName] || THEMES.default;
   if (!userMarker) {
     userMarker = L.marker([lat, lng], { icon: makeLocationIcon(theme.locationColor), zIndexOffset: 1000 }).addTo(map);
-  } else {
-    userMarker.setLatLng([lat, lng]);
-  }
-
+  } else { userMarker.setLatLng([lat, lng]); }
   if (!userAccuracyCircle) {
-    userAccuracyCircle = L.circle([lat, lng], {
-      radius: accuracy, color: theme.locationColor, fillColor: theme.locationColor,
-      fillOpacity: 0.08, weight: 1, opacity: 0.4,
-    }).addTo(map);
-  } else {
-    userAccuracyCircle.setLatLng([lat, lng]).setRadius(accuracy);
-  }
-
+    userAccuracyCircle = L.circle([lat, lng], { radius: accuracy, color: theme.locationColor, fillColor: theme.locationColor, fillOpacity: 0.08, weight: 1, opacity: 0.4 }).addTo(map);
+  } else { userAccuracyCircle.setLatLng([lat, lng]).setRadius(accuracy); }
   if (accuracy < 100) {
     const key = latLngToHexKey(lat, lng);
-    if (!revealedHexes.has(key)) {
-      revealedHexes.add(key);
-      if (draftHexes) draftHexes.add(key);
-      saveRevealedHexes();
+    if (!revealedHexagons.has(key)) {
+      revealedHexagons.add(key);
+      if (draftHexagons) draftHexagons.add(key);
+      saveAll();
       redrawFog();
       if (!isFirstFix) playStartSound();
-      checkMilestone(revealedHexes.size);
+      checkMilestone(revealedHexagons.size);
+      enqueueHexagonForPlaces(key, false);
     }
   }
   updateStatusLine();
@@ -793,15 +730,12 @@ function onPositionUpdate(position) {
 function onPositionError(error) { console.warn('Geolocation error:', error.message); }
 
 function startTracking() {
-  trackingOn = true;
-  hasSnappedToUser = false;
+  trackingOn = true; hasSnappedToUser = false;
   document.getElementById('btn-location').textContent = 'Stop tracking';
   document.getElementById('btn-location').classList.add('active');
   document.getElementById('btn-follow').classList.add('visible');
   setFollowMode(false);
-  watchId = navigator.geolocation.watchPosition(onPositionUpdate, onPositionError, {
-    enableHighAccuracy: true, maximumAge: 2000, timeout: 10000,
-  });
+  watchId = navigator.geolocation.watchPosition(onPositionUpdate, onPositionError, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
 }
 
 function stopTracking() {
@@ -818,8 +752,7 @@ function stopTracking() {
 }
 
 function setFollowMode(on) {
-  const wasOn = followMode;
-  followMode = on;
+  const wasOn = followMode; followMode = on;
   const btn = document.getElementById('btn-follow');
   btn.textContent = followMode ? 'Following' : 'Follow';
   btn.classList.toggle('active', followMode);
@@ -832,13 +765,10 @@ function setFollowMode(on) {
 }
 
 document.getElementById('btn-follow').addEventListener('click', () => setFollowMode(!followMode));
-
 map.on('dragstart', () => { if (followMode && !isProgrammaticMove) setFollowMode(false); });
 map.on('zoomend', () => {
   if (followMode && !isProgrammaticMove && userLatLng) {
-    isProgrammaticMove = true;
-    map.panTo([userLatLng.lat, userLatLng.lng], { animate: false });
-    isProgrammaticMove = false;
+    isProgrammaticMove = true; map.panTo([userLatLng.lat, userLatLng.lng], { animate: false }); isProgrammaticMove = false;
   }
 });
 
@@ -847,7 +777,7 @@ function updateStatusLine() {
   if (trackingOn && userAccuracy !== null) {
     el.textContent = `±${Math.round(userAccuracy)} meters`;
   } else {
-    const count = activeHexes().size;
+    const count = activeHexagons().size;
     el.textContent = `${count} hexagon${count !== 1 ? 's' : ''}`;
   }
 }
@@ -856,110 +786,90 @@ function exitSelectMode(discard) {
   if (!selectMode) return;
   selectMode = false;
   const btn = document.getElementById('btn-select');
-  btn.textContent = 'Select';
-  btn.classList.remove('done-btn');
+  btn.textContent = 'Select'; btn.classList.remove('done-btn');
   document.getElementById('map').classList.remove('select-active');
   document.getElementById('btn-cancel-select').classList.remove('visible');
   if (!discard) {
-    revealedHexes = new Set(draftHexes);
-    draftHexes = null;
-    saveRevealedHexes();
-    checkMilestone(revealedHexes.size);
+    const newHexagons = [];
+    for (const key of draftHexagons) { if (!revealedHexagons.has(key)) newHexagons.push(key); }
+    revealedHexagons = new Set(draftHexagons);
+    draftHexagons = null;
+    reconcilePlacesWithRevealedHexagons();
+    saveAll();
+    renderPlacesList();
+    checkMilestone(revealedHexagons.size);
+    for (const key of newHexagons) enqueueHexagonForPlaces(key, false);
   } else {
-    draftHexes = null;
+    draftHexagons = null;
   }
   redrawFog();
   updateStatusLine();
 }
 
-document.getElementById('btn-menu').addEventListener('click', () => {
-  playOpenSound();
-  document.getElementById('menu-overlay').classList.add('open');
-});
+document.getElementById('btn-menu').addEventListener('click', () => { playOpenSound(); document.getElementById('menu-overlay').classList.add('open'); });
 
 document.getElementById('btn-location').addEventListener('click', () => {
-  if (!trackingOn) {
-    if (!navigator.geolocation) { alert('Geolocation not supported.'); return; }
-    playOpenSound();
-    startTracking();
-  } else {
-    playCloseSound();
-    stopTracking();
-  }
+  if (!trackingOn) { if (!navigator.geolocation) { alert('Geolocation not supported.'); return; } playOpenSound(); startTracking(); }
+  else { playCloseSound(); stopTracking(); }
 });
 
 document.getElementById('btn-select').addEventListener('click', () => {
   if (!selectMode) {
     selectMode = true;
-    draftHexes = new Set(revealedHexes);
+    draftHexagons = new Set(revealedHexagons);
     const btn = document.getElementById('btn-select');
-    btn.textContent = 'Done';
-    btn.classList.add('done-btn');
+    btn.textContent = 'Done'; btn.classList.add('done-btn');
     document.getElementById('map').classList.add('select-active');
     document.getElementById('btn-cancel-select').classList.add('visible');
-    playOpenSound();
-    redrawFog();
-    updateStatusLine();
-  } else {
-    playCloseSound();
-    exitSelectMode(false);
-  }
+    playOpenSound(); redrawFog(); updateStatusLine();
+  } else { playCloseSound(); exitSelectMode(false); }
 });
 
-document.getElementById('btn-cancel-select').addEventListener('click', () => {
-  if (!selectMode) return;
-  playCloseSound();
-  exitSelectMode(true);
-});
+document.getElementById('btn-cancel-select').addEventListener('click', () => { if (!selectMode) return; playCloseSound(); exitSelectMode(true); });
 
 function closeAllMenus() {
   playCloseSound();
-  document.getElementById('menu-overlay').classList.remove('open');
-  document.getElementById('menu-overlay').classList.remove('settings-open');
+  document.getElementById('menu-overlay').classList.remove('open', 'settings-open', 'places-open');
 }
-
 function closeMenu() {
   playCloseSound();
-  document.getElementById('menu-overlay').classList.remove('open');
-  document.getElementById('menu-overlay').classList.remove('settings-open');
+  document.getElementById('menu-overlay').classList.remove('open', 'settings-open', 'places-open');
 }
-
 function openSettings() {
   playOpenSound();
+  document.getElementById('menu-overlay').classList.remove('places-open');
   document.getElementById('menu-overlay').classList.add('settings-open');
 }
-
-function closeSettings() {
-  playCloseSound();
+function closeSettings() { playCloseSound(); document.getElementById('menu-overlay').classList.remove('settings-open'); }
+function openPlaces() {
+  playOpenSound();
   document.getElementById('menu-overlay').classList.remove('settings-open');
+  document.getElementById('menu-overlay').classList.add('places-open');
 }
+function closePlaces() { playCloseSound(); document.getElementById('menu-overlay').classList.remove('places-open'); }
 
 document.getElementById('menu-backdrop').addEventListener('click', closeAllMenus);
 document.getElementById('menu-back').addEventListener('click', closeMenu);
 document.getElementById('menu-settings-open').addEventListener('click', openSettings);
 document.getElementById('settings-back').addEventListener('click', closeSettings);
+document.getElementById('menu-places-open').addEventListener('click', openPlaces);
+document.getElementById('places-back').addEventListener('click', closePlaces);
 
 document.getElementById('menu-save').addEventListener('click', () => {
-  const blob = new Blob([JSON.stringify([...revealedHexes])], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = Object.assign(document.createElement('a'), {
-    href: url,
-    download: `hexplore-${new Date().toISOString().slice(0, 10)}.json`,
-  });
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-  document.getElementById('menu-overlay').classList.remove('open');
-  document.getElementById('menu-overlay').classList.remove('settings-open');
+  doExport();
+  document.getElementById('menu-overlay').classList.remove('open', 'settings-open', 'places-open');
 });
 
+function doExport() {
+  const blob = new Blob([buildSaveObject()], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = Object.assign(document.createElement('a'), { href: url, download: `hexplore-${new Date().toISOString().slice(0, 10)}.json` });
+  document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
+}
+
 document.getElementById('menu-load').addEventListener('click', () => {
-  playOpenSound();
-  stopTracking();
-  const fileInput = Object.assign(document.createElement('input'), {
-    type: 'file', accept: '.json,application/json',
-  });
+  playOpenSound(); stopTracking();
+  const fileInput = Object.assign(document.createElement('input'), { type: 'file', accept: '.json,application/json' });
   let resolved = false;
   fileInput.addEventListener('cancel', () => { if (resolved) return; resolved = true; playCloseSound(); });
   fileInput.addEventListener('change', () => {
@@ -967,77 +877,69 @@ document.getElementById('menu-load').addEventListener('click', () => {
     if (!file) { if (!resolved) { resolved = true; playCloseSound(); } return; }
     resolved = true;
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = e => {
       try {
-        const imported = JSON.parse(e.target.result);
-        if (!Array.isArray(imported)) throw new Error('not an array');
+        const data = JSON.parse(e.target.result);
+        if (!data || typeof data !== 'object') throw new Error('invalid');
         if (selectMode) exitSelectMode(true);
-        revealedHexes = new Set(imported);
-        saveRevealedHexes();
-        resetMilestoneBaseline(revealedHexes.size);
-        snapToRandomRevealedHex();
-        redrawFog();
-        updateStatusLine();
-        closeMenu();
-      } catch {
-        playCloseSound();
-        alert('Invalid file.');
-      }
+        placesData = new Map();
+        revealedHexagons = new Set();
+        for (const [name, val] of Object.entries(data)) {
+          if (!val || typeof val !== 'object' || !Array.isArray(val.hexagons)) continue;
+          const hexSet = new Set(val.hexagons);
+          placesData.set(name, { lat: val.lat ?? null, lng: val.lng ?? null, hexagons: hexSet });
+          for (const key of hexSet) revealedHexagons.add(key);
+        }
+        geocodeQueue = [];
+        saveAll();
+        resetMilestoneBaseline(revealedHexagons.size);
+        snapToRandomRevealedHexagon();
+        redrawFog(); updateStatusLine(); renderPlacesList(); closeMenu();
+      } catch { playCloseSound(); alert('Invalid file.'); }
     };
     reader.readAsText(file);
   });
   fileInput.click();
 });
 
-document.getElementById('menu-clear').addEventListener('click', () => {
-  playOpenSound();
-  document.getElementById('confirm-overlay').classList.add('open');
-});
+document.getElementById('menu-clear').addEventListener('click', () => { playOpenSound(); document.getElementById('confirm-overlay').classList.add('open'); });
 
-document.getElementById('confirm-overlay').addEventListener('click', (e) => {
+document.getElementById('confirm-overlay').addEventListener('click', e => {
   if (e.target.id === 'confirm-overlay') { playCloseSound(); document.getElementById('confirm-overlay').classList.remove('open'); }
 });
-document.getElementById('confirm-cancel').addEventListener('click', () => {
-  playCloseSound();
-  document.getElementById('confirm-overlay').classList.remove('open');
-});
+document.getElementById('confirm-cancel').addEventListener('click', () => { playCloseSound(); document.getElementById('confirm-overlay').classList.remove('open'); });
 
 document.getElementById('confirm-ok').addEventListener('click', () => {
   stopTracking();
   if (selectMode) exitSelectMode(true);
-
-  revealedHexes.clear();
-  saveRevealedHexes();
+  revealedHexagons.clear();
+  placesData.clear();
+  geocodeCache.clear();
+  geocodeQueue = [];
+  geocodingActive = false;
+  saveAll();
   resetMilestoneBaseline(0);
-
+  renderPlacesList();
   soundOn = true;
   try { localStorage.setItem(SOUND_KEY, 'true'); } catch (e) {}
   soundBtn.textContent = 'Sound: On';
-
   milestoneStep = 500;
   try { localStorage.setItem(MILESTONE_STEP_KEY, '500'); } catch (e) {}
   milestoneBtn.textContent = 'Notify every: 500';
-
   currentThemeName = 'default';
   try { localStorage.setItem(THEME_KEY, 'default'); } catch (e) {}
-  applyTheme('default');
-  themeBtn.textContent = 'Theme: Default';
-
+  applyTheme('default'); themeBtn.textContent = 'Theme: Default';
   map.setView([20, 0], 3, { animate: false });
-  redrawFog();
-  updateStatusLine();
-  playCloseSound();
+  redrawFog(); updateStatusLine(); playCloseSound();
   document.getElementById('confirm-overlay').classList.remove('open');
-  document.getElementById('menu-overlay').classList.remove('open');
-  document.getElementById('menu-overlay').classList.remove('settings-open');
+  document.getElementById('menu-overlay').classList.remove('open', 'settings-open', 'places-open');
 });
 
 const soundBtn = document.getElementById('menu-sound');
 soundBtn.textContent = `Sound: ${soundOn ? 'On' : 'Off'}`;
 soundBtn.addEventListener('click', () => {
   const turningOn = !soundOn;
-  if (turningOn) { soundOn = true; playStartSound(); }
-  else { playStopSound(); soundOn = false; }
+  if (turningOn) { soundOn = true; playStartSound(); } else { playStopSound(); soundOn = false; }
   try { localStorage.setItem(SOUND_KEY, String(soundOn)); } catch (e) {}
   soundBtn.textContent = `Sound: ${soundOn ? 'On' : 'Off'}`;
 });
@@ -1049,7 +951,7 @@ milestoneBtn.addEventListener('click', () => {
   milestoneStep = MILESTONE_STEPS[(idx + 1) % MILESTONE_STEPS.length];
   try { localStorage.setItem(MILESTONE_STEP_KEY, String(milestoneStep)); } catch (e) {}
   milestoneBtn.textContent = `Notify every: ${milestoneStep}`;
-  resetMilestoneBaseline(revealedHexes.size);
+  resetMilestoneBaseline(revealedHexagons.size);
   if (milestoneStep === 'Off') playStopSound(); else playStartSound();
 });
 
@@ -1065,13 +967,12 @@ themeBtn.addEventListener('click', () => {
 });
 
 applyTheme(currentThemeName);
-
+renderPlacesList();
+updateExportButton();
 syncLayout(true);
 window.addEventListener('resize', () => syncLayout(true));
 window.addEventListener('orientationchange', () => {
-  syncLayout(true);
-  setTimeout(() => syncLayout(true), 50);
-  setTimeout(() => syncLayout(true), 300);
+  syncLayout(true); setTimeout(() => syncLayout(true), 50); setTimeout(() => syncLayout(true), 300);
 });
 updateStatusLine();
 </script>
