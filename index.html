@@ -1300,6 +1300,11 @@ window.addEventListener('orientationchange', () => {
   syncLayout(true);
   setTimeout(() => syncLayout(true), 50);
   setTimeout(() => syncLayout(true), 300);
+  const theme = THEMES[currentThemeName] || THEMES.default;
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', theme['--bg']);
+  setTimeout(() => {
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', theme['--bg']);
+  }, 300);
 });
 updateStatusLine();
 </script>
