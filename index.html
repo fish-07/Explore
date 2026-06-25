@@ -741,8 +741,6 @@ function activeHexagons() { return selectMode ? draftHexagons : revealedHexagons
 
 loadAll();
 
-drainGeocodeQueue(true);
-
 const GEOCODE_DELAY_MS = 1100;
 const MAX_PLACE_DISTANCE_M = 10000;
 
@@ -1392,6 +1390,7 @@ applyTheme(currentThemeName);
 renderPlacesList();
 updateExportButton();
 updatePlacesButton();
+drainGeocodeQueue(true);
 syncLayout(true);
 window.addEventListener('resize', () => syncLayout(true));
 window.addEventListener('orientationchange', () => {
