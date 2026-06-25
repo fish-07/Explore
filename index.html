@@ -253,7 +253,7 @@
   <div id="settings-sheet">
     <div id="settings-handle"></div>
     <button class="menu-btn back-btn" id="settings-back">Back</button>
-    <button class="menu-btn" id="menu-discovery">Minimum for discovery: 50</button>
+    <button class="menu-btn" id="menu-discovery">Minimum discovery: 50</button>
     <button class="menu-btn" id="menu-milestone">Notify every: 500</button>
     <button class="menu-btn" id="menu-sound">Sound: On</button>
     <button class="menu-btn" id="menu-theme">Theme: Default</button>
@@ -622,10 +622,14 @@ function tone(freqStart, freqEnd, duration, volume, startOffset) {
   });
 }
 
-function playOpenSound() { tone(325, 550, 0.05, 0.5, 0); tone(450, 325, 0.05, 0.3, 0.05); }
-function playCloseSound() { tone(450, 325, 0.05, 0.5, 0); tone(325, 550, 0.05, 0.3, 0.05); }
+function playOpenSound() { tone(325, 550, 0.05, 0.5, 0); tone(450, 325, 0.05, 0.5, 0.05); }
+function playCloseSound() { tone(450, 325, 0.05, 0.5, 0); tone(325, 550, 0.05, 0.5, 0.05); }
 function playStartSound() { tone(450, 325, 0.05, 0.5); }
 function playStopSound() { tone(325, 550, 0.05, 0.5); }
+function playDiscoverySound() {
+  tone(325, 450, 0.05, 0.5, 0);
+  tone(388, 500, 0.05, 0.5, 0.05);
+  tone(450, 550, 0.05, 0.5, 0.1); }
 
 const MILESTONE_COUNT_KEY = 'hexplore_milestone_count_v1';
 const MILESTONE_STEP_KEY = 'hexplore_milestone_step_v1';
@@ -692,13 +696,14 @@ function sendPlaceDiscoveredNotification(placeName) {
 
 const STORAGE_KEY = 'hexplore_v1';
 const NO_LOCATION_KEY = '__no_location__';
+const UNSORTED_KEY = '__unsorted__';
 
 let placesData = new Map();
 
 function buildSaveObject() {
   const places = {};
   for (const [name, val] of placesData) {
-    if (name === NO_LOCATION_KEY) {
+    if (name === NO_LOCATION_KEY || name === UNSORTED_KEY) {
       places[name] = { hexagons: [...val.hexagons] };
     } else {
       places[name] = { lat: val.lat, lng: val.lng, hexagons: [...val.hexagons] };
@@ -729,6 +734,8 @@ function loadAll() {
   } catch (e) {}
 }
 
+let geocodingActive = false;
+
 function activeHexagons() { return selectMode ? draftHexagons : revealedHexagons; }
 
 loadAll();
@@ -747,33 +754,20 @@ try {
   }
 } catch (e) {}
 
-const GEOCODE_QUEUE_KEY = 'hexplore_geocode_queue_v1';
-
-function saveGeocodeQueue() {
-  try { localStorage.setItem(GEOCODE_QUEUE_KEY, JSON.stringify(geocodeQueue)); } catch (e) {}
-}
-
-function loadGeocodeQueue() {
-  try {
-    const raw = localStorage.getItem(GEOCODE_QUEUE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch (e) {}
-  return [];
-}
-
 function updateExportButton() {
   const btn = document.getElementById('menu-save');
-  btn.classList.toggle('disabled', geocodingActive || geocodeQueue.length > 0);
+  const unsorted = placesData.get(UNSORTED_KEY);
+  btn.classList.toggle('disabled', geocodingActive || (unsorted && unsorted.hexagons.size > 0));
 }
 
 const geocodeCache = new Map();
-let geocodeQueue = loadGeocodeQueue();
-let geocodingActive = false;
 
-if (geocodeQueue.length > 0) drainGeocodeQueue();
+function getUnsorted() {
+  if (!placesData.has(UNSORTED_KEY)) {
+    placesData.set(UNSORTED_KEY, { lat: null, lng: null, hexagons: new Set() });
+  }
+  return placesData.get(UNSORTED_KEY);
+}
 
 function nominatimUrl(lat, lng) {
   return `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10&addressdetails=1`;
@@ -812,43 +806,51 @@ async function geocodeHexagon(key) {
   }
 }
 
-function recordHexagonInPlace(key, place, lat, lng, fromImport) {
+function moveFromUnsortedToPlace(key, place, lat, lng, fromImport) {
+  const unsorted = placesData.get(UNSORTED_KEY);
+  if (unsorted) unsorted.hexagons.delete(key);
+
   let entry = placesData.get(place);
   if (!entry) { entry = { lat, lng, hexagons: new Set() }; placesData.set(place, entry); }
-  if (entry.hexagons.has(key)) return;
+  if (entry.hexagons.has(key)) { saveAll(); return; }
   const wasUnlocked = entry.hexagons.size >= placesThreshold;
   entry.hexagons.add(key);
   saveAll();
   const nowUnlocked = entry.hexagons.size >= placesThreshold;
   if (nowUnlocked) renderPlacesList();
-  if (nowUnlocked && !wasUnlocked && !fromImport) sendPlaceDiscoveredNotification(place);
+  if (nowUnlocked && !wasUnlocked && !fromImport) { playDiscoverySound(); sendPlaceDiscoveredNotification(place); }
 }
 
 function enqueueHexagonForPlaces(key, fromImport) {
-  if (geocodeCache.has(key)) {
-    const result = geocodeCache.get(key);
-    if (result) recordHexagonInPlace(key, result.place, result.lat, result.lng, fromImport);
-    return;
+  for (const [name, entry] of placesData) {
+    if (name === UNSORTED_KEY) continue;
+    if (entry.hexagons.has(key)) return;
   }
-  for (const [, entry] of placesData) { if (entry.hexagons.has(key)) return; }
-  if (!geocodeQueue.find(item => item.key === key)) {
-    geocodeQueue.push({ key, fromImport: !!fromImport });
-    saveGeocodeQueue();
+  const unsorted = getUnsorted();
+  if (!unsorted.hexagons.has(key)) {
+    unsorted.hexagons.add(key);
+    saveAll();
   }
-  drainGeocodeQueue();
+  drainGeocodeQueue(fromImport);
   updateExportButton();
 }
 
-function drainGeocodeQueue() {
-  if (geocodingActive || geocodeQueue.length === 0) return;
+function drainGeocodeQueue(fromImport) {
+  if (geocodingActive) return;
+  const unsorted = placesData.get(UNSORTED_KEY);
+  if (!unsorted || unsorted.hexagons.size === 0) return;
   geocodingActive = true;
   async function processNext() {
-    if (geocodeQueue.length === 0) { geocodingActive = false; updateExportButton(); saveGeocodeQueue(); return; }
-    const { key, fromImport } = geocodeQueue.shift();
-    saveGeocodeQueue();
+    const unsorted = placesData.get(UNSORTED_KEY);
+    if (!unsorted || unsorted.hexagons.size === 0) {
+      geocodingActive = false;
+      updateExportButton();
+      return;
+    }
+    const key = unsorted.hexagons.values().next().value;
     const result = await geocodeHexagon(key);
-    if (result) recordHexagonInPlace(key, result.place, result.lat, result.lng, fromImport);
-    else recordHexagonInPlace(key, NO_LOCATION_KEY, null, null, fromImport);
+    if (result) moveFromUnsortedToPlace(key, result.place, result.lat, result.lng, !!fromImport);
+    else moveFromUnsortedToPlace(key, NO_LOCATION_KEY, null, null, !!fromImport);
     setTimeout(processNext, GEOCODE_DELAY_MS);
   }
   processNext();
@@ -871,7 +873,7 @@ function renderPlacesList() {
   list.querySelectorAll('.place-item').forEach(el => el.remove());
   const visited = [];
   for (const [name, data] of placesData) {
-    if (name === NO_LOCATION_KEY) continue;
+    if (name === NO_LOCATION_KEY || name === UNSORTED_KEY) continue;
     if (data.hexagons.size >= placesThreshold) {
       visited.push({ name, lat: data.lat, lng: data.lng, count: data.hexagons.size });
     }
@@ -882,7 +884,7 @@ function renderPlacesList() {
     btn.className = 'place-item';
     btn.innerHTML = `<span class="place-item-name">${place.name}</span><span class="place-item-count">${place.count} hexagons</span>`;
     btn.addEventListener('click', () => {
-      playCloseSound();
+      playDiscoverySound();
       if (followMode) setFollowMode(false);
       document.getElementById('menu-overlay').classList.remove('open', 'settings-open', 'places-open');
       const entry = placesData.get(place.name);
@@ -1252,10 +1254,11 @@ document.getElementById('menu-load').addEventListener('click', () => {
           placesData.set(name, { lat: val.lat ?? null, lng: val.lng ?? null, hexagons: hexSet });
           for (const key of hexSet) revealedHexagons.add(key);
         }
-        geocodeQueue = [];
-        saveGeocodeQueue();
+        geocodingActive = false;
         saveAll();
         resetMilestoneBaseline(revealedHexagons.size);
+        drainGeocodeQueue(true);
+        updateExportButton();
         snapToRandomRevealedHexagon();
         redrawFog();
         updateStatusLine();
@@ -1291,9 +1294,7 @@ document.getElementById('confirm-ok').addEventListener('click', () => {
   revealedHexagons.clear();
   placesData.clear();
   geocodeCache.clear();
-  geocodeQueue = [];
   geocodingActive = false;
-  saveGeocodeQueue();
   saveAll();
   resetMilestoneBaseline(0);
   renderPlacesList();
@@ -1304,11 +1305,11 @@ document.getElementById('confirm-ok').addEventListener('click', () => {
 
   milestoneStep = 500;
   try { localStorage.setItem(MILESTONE_STEP_KEY, '500'); } catch (e) {}
-  milestoneBtn.textContent = 'Minimum for discovery: 500';
+  milestoneBtn.textContent = 'Notify every: 500';
 
   placesThreshold = 50;
   try { localStorage.setItem(DISCOVERY_STEP_KEY, '50'); } catch (e) {}
-  discoveryBtn.textContent = 'Minimum for discovery: 50';
+  discoveryBtn.textContent = 'Minimum discovery: 50';
 
   currentThemeName = 'default';
   try { localStorage.setItem(THEME_KEY, 'default'); } catch (e) {}
@@ -1334,12 +1335,12 @@ soundBtn.addEventListener('click', () => {
 });
 
 const discoveryBtn = document.getElementById('menu-discovery');
-discoveryBtn.textContent = `Minimum for discovery: ${placesThreshold}`;
+discoveryBtn.textContent = `Minimum discovery: ${placesThreshold}`;
 discoveryBtn.addEventListener('click', () => {
   const idx = DISCOVERY_STEPS.indexOf(placesThreshold);
   placesThreshold = DISCOVERY_STEPS[(idx + 1) % DISCOVERY_STEPS.length];
   try { localStorage.setItem(DISCOVERY_STEP_KEY, String(placesThreshold)); } catch (e) {}
-  discoveryBtn.textContent = `Minimum for discovery: ${placesThreshold}`;
+  discoveryBtn.textContent = `Minimum discovery: ${placesThreshold}`;
   renderPlacesList();
   playStartSound();
 });
