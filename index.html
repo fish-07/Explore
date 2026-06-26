@@ -735,8 +735,6 @@ function loadAll() {
   } catch (e) {}
 }
 
-let geocodingActive = false;
-
 function activeHexagons() { return selectMode ? draftHexagons : revealedHexagons; }
 
 loadAll();
@@ -756,11 +754,14 @@ try {
   }
 } catch (e) {}
 
+function unsortedHexagons() {
+  const entry = placesData.get(UNSORTED_KEY);
+  return entry ? entry.hexagons : new Set();
+}
+
 function updateExportButton() {
   const btn = document.getElementById('menu-save');
-  const unsorted = placesData.get(UNSORTED_KEY);
-  const hasUnsorted = unsorted && unsorted.hexagons.size > 0;
-  btn.classList.toggle('disabled', revealedHexagons.size === 0 || geocodingActive || hasUnsorted);
+  btn.classList.toggle('disabled', revealedHexagons.size === 0 || unsortedHexagons().size > 0);
 }
 
 function updatePlacesButton() {
@@ -774,13 +775,6 @@ function updatePlacesButton() {
 }
 
 const geocodeCache = new Map();
-
-function getUnsorted() {
-  if (!placesData.has(UNSORTED_KEY)) {
-    placesData.set(UNSORTED_KEY, { lat: null, lng: null, hexagons: new Set() });
-  }
-  return placesData.get(UNSORTED_KEY);
-}
 
 function nominatimUrl(lat, lng) {
   return `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10&addressdetails=1`;
@@ -805,8 +799,7 @@ function placeKeyFor(name, lat, lng) {
     if (dist <= MAX_PLACE_CLUSTER_DISTANCE_M) return key;
   }
   const existing = [...placesData.keys()].filter(k => k.startsWith(name + '\x00'));
-  const idx = existing.length;
-  return idx === 0 ? name + '\x00' + '0' : name + '\x00' + idx;
+  return name + '\x00' + existing.length;
 }
 
 function placeDisplayName(key) {
@@ -835,77 +828,84 @@ async function geocodeHexagon(key) {
   }
 }
 
-function moveFromUnsortedToPlace(key, place, lat, lng, fromImport) {
-  const unsorted = placesData.get(UNSORTED_KEY);
-  if (unsorted) unsorted.hexagons.delete(key);
-  if (place === NO_LOCATION_KEY) {
-    let entry = placesData.get(NO_LOCATION_KEY);
-    if (!entry) { entry = { lat: null, lng: null, hexagons: new Set() }; placesData.set(NO_LOCATION_KEY, entry); }
-    entry.hexagons.add(key);
-    saveAll();
-    updateExportButton();
-    return;
-  }
-  const pkey = placeKeyFor(place, lat, lng);
-  let entry = placesData.get(pkey);
-  if (!entry) { entry = { lat, lng, hexagons: new Set() }; placesData.set(pkey, entry); }
-  if (entry.hexagons.has(key)) { saveAll(); updateExportButton(); return; }
-  const wasUnlocked = entry.hexagons.size >= placesThreshold;
-  entry.hexagons.add(key);
-  saveAll();
-  updateExportButton();
-  const nowUnlocked = entry.hexagons.size >= placesThreshold;
-  if (nowUnlocked) renderPlacesList();
-  if (nowUnlocked && !wasUnlocked && !fromImport) { playDiscoverySound(); sendPlaceDiscoveredNotification(place); }
-}
-
-function enqueueHexagonForPlaces(key, fromImport) {
+function enqueueHexagonForPlaces(key) {
   for (const [name, entry] of placesData) {
     if (name === UNSORTED_KEY) continue;
     if (entry.hexagons.has(key)) return;
   }
-  const unsorted = getUnsorted();
+  if (!placesData.has(UNSORTED_KEY)) {
+    placesData.set(UNSORTED_KEY, { lat: null, lng: null, hexagons: new Set() });
+  }
+  const unsorted = placesData.get(UNSORTED_KEY);
   if (!unsorted.hexagons.has(key)) {
     unsorted.hexagons.add(key);
     saveAll();
+    updateExportButton();
+    geocodeLoop();
   }
-  drainGeocodeQueue(fromImport);
-  updateExportButton();
 }
 
-function drainGeocodeQueue(fromImport) {
-  if (geocodingActive) return;
-  const unsorted = placesData.get(UNSORTED_KEY);
-  if (!unsorted || unsorted.hexagons.size === 0) return;
-  geocodingActive = true;
-  async function processNext() {
+let geocodeLoopRunning = false;
+
+async function geocodeLoop() {
+  if (geocodeLoopRunning) return;
+  geocodeLoopRunning = true;
+  while (true) {
     const unsorted = placesData.get(UNSORTED_KEY);
     if (!unsorted || unsorted.hexagons.size === 0) {
-      geocodingActive = false;
+      geocodeLoopRunning = false;
       updateExportButton();
       return;
     }
     const key = unsorted.hexagons.values().next().value;
-    if (!key) {
-      geocodingActive = false;
+    if (!key || !revealedHexagons.has(key)) {
+      if (key) {
+        unsorted.hexagons.delete(key);
+        if (unsorted.hexagons.size === 0) placesData.delete(UNSORTED_KEY);
+        saveAll();
+        updateExportButton();
+      }
+      continue;
+    }
+    try {
+      const result = await geocodeHexagon(key);
+      if (!revealedHexagons.has(key)) {
+        const u = placesData.get(UNSORTED_KEY);
+        if (u) { u.hexagons.delete(key); if (u.hexagons.size === 0) placesData.delete(UNSORTED_KEY); }
+        saveAll();
+        updateExportButton();
+      } else {
+        const u = placesData.get(UNSORTED_KEY);
+        if (u) { u.hexagons.delete(key); if (u.hexagons.size === 0) placesData.delete(UNSORTED_KEY); }
+        if (result) {
+          const pkey = placeKeyFor(result.place, result.lat, result.lng);
+          if (!placesData.has(pkey)) placesData.set(pkey, { lat: result.lat, lng: result.lng, hexagons: new Set() });
+          const entry = placesData.get(pkey);
+          const wasUnlocked = entry.hexagons.size >= placesThreshold;
+          entry.hexagons.add(key);
+          const nowUnlocked = entry.hexagons.size >= placesThreshold;
+          saveAll();
+          updateExportButton();
+          if (nowUnlocked) renderPlacesList();
+          if (nowUnlocked && !wasUnlocked) { playDiscoverySound(); sendPlaceDiscoveredNotification(result.place); }
+        } else {
+          if (!placesData.has(NO_LOCATION_KEY)) placesData.set(NO_LOCATION_KEY, { lat: null, lng: null, hexagons: new Set() });
+          placesData.get(NO_LOCATION_KEY).hexagons.add(key);
+          saveAll();
+          updateExportButton();
+        }
+      }
+    } catch (e) {
+      const u = placesData.get(UNSORTED_KEY);
+      if (u && key) { u.hexagons.delete(key); if (u.hexagons.size === 0) placesData.delete(UNSORTED_KEY); saveAll(); }
       updateExportButton();
-      return;
     }
-    if (!revealedHexagons.has(key)) {
-      unsorted.hexagons.delete(key);
-      setTimeout(processNext, 0);
-      return;
-    }
-    const result = await geocodeHexagon(key);
-    if (result) moveFromUnsortedToPlace(key, result.place, result.lat, result.lng, !!fromImport);
-    else moveFromUnsortedToPlace(key, NO_LOCATION_KEY, null, null, !!fromImport);
-    setTimeout(processNext, GEOCODE_DELAY_MS);
+    await new Promise(resolve => setTimeout(resolve, GEOCODE_DELAY_MS));
   }
-  processNext();
 }
 
 function reconcilePlacesWithRevealedHexagons() {
-  for (const [name, entry] of placesData) {
+  for (const [name, entry] of [...placesData]) {
     for (const key of [...entry.hexagons]) {
       if (!revealedHexagons.has(key)) entry.hexagons.delete(key);
     }
@@ -914,6 +914,7 @@ function reconcilePlacesWithRevealedHexagons() {
   for (const key of geocodeCache.keys()) {
     if (!revealedHexagons.has(key)) geocodeCache.delete(key);
   }
+  updateExportButton();
 }
 
 function renderPlacesList() {
@@ -1089,7 +1090,7 @@ function onPositionUpdate(position) {
       redrawFog();
       if (!isFirstFix) playStartSound();
       checkMilestone(revealedHexagons.size);
-      enqueueHexagonForPlaces(key, false);
+      enqueueHexagonForPlaces(key);
     }
   }
   updateStatusLine();
@@ -1174,7 +1175,7 @@ function exitSelectMode(discard) {
     saveAll();
     renderPlacesList();
     checkMilestone(revealedHexagons.size);
-    for (const key of newHexes) enqueueHexagonForPlaces(key, false);
+    for (const key of newHexes) enqueueHexagonForPlaces(key);
   } else {
     draftHexagons = null;
   }
@@ -1304,10 +1305,10 @@ document.getElementById('menu-load').addEventListener('click', () => {
           placesData.set(name, { lat: val.lat ?? null, lng: val.lng ?? null, hexagons: hexSet });
           for (const key of hexSet) revealedHexagons.add(key);
         }
-        geocodingActive = false;
+        geocodeLoopRunning = false;
         saveAll();
         resetMilestoneBaseline(revealedHexagons.size);
-        drainGeocodeQueue(true);
+        geocodeLoop();
         updateExportButton();
         snapToRandomRevealedHexagon();
         redrawFog();
@@ -1344,7 +1345,7 @@ document.getElementById('confirm-ok').addEventListener('click', () => {
   revealedHexagons.clear();
   placesData.clear();
   geocodeCache.clear();
-  geocodingActive = false;
+  geocodeLoopRunning = false;
   saveAll();
   resetMilestoneBaseline(0);
   renderPlacesList();
@@ -1428,7 +1429,7 @@ applyTheme(currentThemeName);
 renderPlacesList();
 updateExportButton();
 updatePlacesButton();
-drainGeocodeQueue(true);
+geocodeLoop();
 syncLayout(true);
 window.addEventListener('resize', () => syncLayout(true));
 window.addEventListener('orientationchange', () => {
