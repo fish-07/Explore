@@ -133,7 +133,7 @@
     transition: transform .25s ease;
   }
   #places-sheet, #settings-sheet {
-    height: calc(20px + 6 * 55px + 5 * 10px + 15px + max(35px, calc(var(--safe-b) + 15px)));
+    height: calc(33px + 6 * 55px + 5 * 10px + max(35px, calc(var(--safe-b) + 15px)));
   }
   #places-list {
     overflow-y: auto;
@@ -253,6 +253,7 @@
   <div id="settings-sheet">
     <div id="settings-handle"></div>
     <button class="menu-btn back-btn" id="settings-back">Back</button>
+    <button class="menu-btn" id="menu-mist">Mist: Off</button>
     <button class="menu-btn" id="menu-discovery">Minimum discovery: 100</button>
     <button class="menu-btn" id="menu-milestone">Notify every: 500</button>
     <button class="menu-btn" id="menu-sound">Sound: On</button>
@@ -288,6 +289,11 @@ const TARGET_HEX_METRES = 100;
 const pxPerMetreAtEquator = (256 / 360) / METRES_PER_DEGREE;
 const pxPerMetreAtCalibration = pxPerMetreAtEquator / Math.cos(CALIBRATION_LATITUDE * Math.PI / 180);
 const HEX_RADIUS_PX0 = (TARGET_HEX_METRES / 2) * pxPerMetreAtCalibration;
+
+const MIST_RADIUS_METRES = 100;
+const MIST_RADIUS_PX0 = MIST_RADIUS_METRES * pxPerMetreAtCalibration;
+const MIST_ZOOM_THRESHOLD = 15;
+const MIST_MAX_CIRCLES = 600;
 
 function hexKey(q, r) { return `${q},${r}`; }
 function parseHexKey(key) {
@@ -424,6 +430,9 @@ let userMarker = null;
 let userAccuracyCircle = null;
 let fogLayer = null;
 let borderLayer = null;
+let mistMask = null;
+let mistMaskBase = null;
+let mistMaskCircles = null;
 let cachedBorderHexagons = null;
 
 syncLayout(false);
@@ -569,6 +578,13 @@ let soundOn = true;
 try {
   const savedSound = localStorage.getItem(SOUND_KEY);
   if (savedSound !== null) soundOn = savedSound === 'true';
+} catch (e) {}
+
+const MIST_KEY = 'hexplore_mist_v1';
+let mistOn = false;
+try {
+  const savedMist = localStorage.getItem(MIST_KEY);
+  if (savedMist !== null) mistOn = savedMist === 'true';
 } catch (e) {}
 
 let audioCtx = null;
@@ -908,30 +924,108 @@ function ensureFogLayers() {
     borderLayer.setAttribute('pointer-events', 'none');
     fogSvg.appendChild(borderLayer);
   }
+  if (!mistMask) {
+    const defs = document.createElementNS(SVG_NS, 'defs');
+    const gradient = document.createElementNS(SVG_NS, 'radialGradient');
+    gradient.setAttribute('id', 'mistMaskGradient');
+    const stop0 = document.createElementNS(SVG_NS, 'stop');
+    stop0.setAttribute('offset', '0%');
+    stop0.setAttribute('stop-color', 'black');
+    const stopMid = document.createElementNS(SVG_NS, 'stop');
+    stopMid.setAttribute('offset', '60%');
+    stopMid.setAttribute('stop-color', 'black');
+    const stop1 = document.createElementNS(SVG_NS, 'stop');
+    stop1.setAttribute('offset', '100%');
+    stop1.setAttribute('stop-color', 'white');
+    gradient.appendChild(stop0);
+    gradient.appendChild(stopMid);
+    gradient.appendChild(stop1);
+    defs.appendChild(gradient);
+    mistMask = document.createElementNS(SVG_NS, 'mask');
+    mistMask.setAttribute('id', 'mistMask');
+    mistMaskBase = document.createElementNS(SVG_NS, 'rect');
+    mistMaskBase.setAttribute('x', '-99999');
+    mistMaskBase.setAttribute('y', '-99999');
+    mistMaskBase.setAttribute('width', '199998');
+    mistMaskBase.setAttribute('height', '199998');
+    mistMaskBase.setAttribute('fill', 'white');
+    mistMask.appendChild(mistMaskBase);
+    mistMaskCircles = document.createElementNS(SVG_NS, 'g');
+    mistMask.appendChild(mistMaskCircles);
+    defs.appendChild(mistMask);
+    fogSvg.appendChild(defs);
+  }
 }
 
 function redrawFog() { invalidateBorderCache(); drawFog(); }
+
+function renderMistCircles(keys) {
+  mistMaskCircles.textContent = '';
+  if (keys.length === 0) return;
+  let selected = keys;
+  if (selected.length > MIST_MAX_CIRCLES) {
+    const center = map.getCenter();
+    selected = [...keys].sort((a, b) => {
+      const la = hexKeyToLatLng(a);
+      const lb = hexKeyToLatLng(b);
+      const da = haversineDistance(center.lat, center.lng, la.lat, la.lng);
+      const db = haversineDistance(center.lat, center.lng, lb.lat, lb.lng);
+      return da - db;
+    }).slice(0, MIST_MAX_CIRCLES);
+  }
+  const radius = MIST_RADIUS_PX0 * Math.pow(2, map.getZoom());
+  for (const key of selected) {
+    const { q, r } = parseHexKey(key);
+    const center = hexCenterOnScreen(q, r);
+    const circle = document.createElementNS(SVG_NS, 'circle');
+    circle.setAttribute('cx', center.x.toFixed(2));
+    circle.setAttribute('cy', center.y.toFixed(2));
+    circle.setAttribute('r', radius.toFixed(2));
+    circle.setAttribute('fill', 'url(#mistMaskGradient)');
+    circle.style.mixBlendMode = 'darken';
+    mistMaskCircles.appendChild(circle);
+  }
+}
 
 function drawFog() {
   ensureFogLayers();
   const fogOpacity = selectMode ? 0.5 : 0.98;
   const borderOpacity = 0.5;
   const hexes = activeHexagons();
-  const borders = getBorderHexagons();
+  const zoom = map.getZoom();
+  const useMistGradient = mistOn && !selectMode && zoom >= MIST_ZOOM_THRESHOLD;
   const revealedPaths = [];
-  for (const key of hexes) {
-    const { q, r } = parseHexKey(key);
-    revealedPaths.push(hexSvgPath(q, r));
+  const mistKeys = [];
+  if (useMistGradient) {
+    const bounds = map.getBounds().pad(0.5);
+    for (const key of hexes) {
+      const ll = hexKeyToLatLng(key);
+      if (bounds.contains(ll)) mistKeys.push(key);
+    }
+  } else {
+    for (const key of hexes) {
+      const { q, r } = parseHexKey(key);
+      revealedPaths.push(hexSvgPath(q, r));
+    }
   }
   const borderPaths = [];
-  for (const key of borders) {
-    const { q, r } = parseHexKey(key);
-    borderPaths.push(hexSvgPath(q, r));
+  if (!useMistGradient) {
+    const borders = getBorderHexagons();
+    for (const key of borders) {
+      const { q, r } = parseHexKey(key);
+      borderPaths.push(hexSvgPath(q, r));
+    }
   }
   fogLayer.setAttribute('fill-opacity', String(fogOpacity));
   fogLayer.setAttribute('d', WORLD_RECT + revealedPaths.join(' ') + ' ' + borderPaths.join(' '));
+  if (useMistGradient) {
+    fogLayer.setAttribute('mask', 'url(#mistMask)');
+  } else {
+    fogLayer.removeAttribute('mask');
+  }
   borderLayer.setAttribute('fill-opacity', String(borderOpacity));
   borderLayer.setAttribute('d', borderPaths.join(' ') || 'M 0 0 Z');
+  renderMistCircles(useMistGradient ? mistKeys : []);
 }
 
 map.on('move zoom viewreset', drawFog);
@@ -1257,6 +1351,10 @@ document.getElementById('confirm-ok').addEventListener('click', () => {
   try { localStorage.setItem(SOUND_KEY, 'true'); } catch (e) {}
   soundBtn.textContent = 'Sound: On';
 
+  mistOn = false;
+  try { localStorage.setItem(MIST_KEY, 'false'); } catch (e) {}
+  mistBtn.textContent = 'Mist: Off';
+
   milestoneStep = 500;
   try { localStorage.setItem(MILESTONE_STEP_KEY, '500'); } catch (e) {}
   milestoneBtn.textContent = 'Notify every: 500';
@@ -1287,6 +1385,16 @@ soundBtn.addEventListener('click', () => {
   else { playStopSound(); soundOn = false; }
   try { localStorage.setItem(SOUND_KEY, String(soundOn)); } catch (e) {}
   soundBtn.textContent = `Sound: ${soundOn ? 'On' : 'Off'}`;
+});
+
+const mistBtn = document.getElementById('menu-mist');
+mistBtn.textContent = `Mist: ${mistOn ? 'On' : 'Off'}`;
+mistBtn.addEventListener('click', () => {
+  mistOn = !mistOn;
+  try { localStorage.setItem(MIST_KEY, String(mistOn)); } catch (e) {}
+  mistBtn.textContent = `Mist: ${mistOn ? 'On' : 'Off'}`;
+  if (mistOn) playStartSound(); else playStopSound();
+  redrawFog();
 });
 
 const discoveryBtn = document.getElementById('menu-discovery');
