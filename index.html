@@ -55,7 +55,7 @@
   }
 
   #bar {
-    position: fixed; left: 0; right: 0; bottom: 0;
+    position: fixed; left: 0; right: 0; bottom: var(--vv-bottom-offset, 0px);
     background: var(--surface);
     border-top: 1px solid var(--muted);
     display: flex; flex-direction: column; align-items: center;
@@ -217,9 +217,9 @@
   #status-bar-overlay {
     position: fixed;
     top: 0; left: 0; right: 0;
-    height: var(--safe-t);
+    height: calc(var(--safe-t) + 10px);
     background: var(--bg);
-    opacity: 0.5;
+    opacity: 0.8;
     pointer-events: none;
     z-index: 460;
   }
@@ -377,6 +377,12 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
 }).addTo(map);
 
+function syncViewportOffset() {
+  if (!window.visualViewport) return;
+  const offset = window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop;
+  document.documentElement.style.setProperty('--vv-bottom-offset', Math.max(0, offset) + 'px');
+}
+
 function syncBarHeight() {
   const height = document.getElementById('bar').getBoundingClientRect().height;
   document.documentElement.style.setProperty('--bar-height', height + 'px');
@@ -408,6 +414,7 @@ function syncMistCanvasSize() {
 
 function syncLayout(includeFog) {
   syncSafeArea();
+  syncViewportOffset();
   syncBarHeight();
   syncFogSvgSize();
   if (mistOn) {
@@ -1042,13 +1049,11 @@ function drawFog() {
     fogLayer.setAttribute('d', 'M 0 0 Z');
     borderLayer.setAttribute('d', 'M 0 0 Z');
 
-    mistCanvas.style.background = THEMES[currentThemeName]['--bg'];
     mistCanvas.style.display = '';
     syncMistCanvasCssPosition();
     syncMistCanvasSize();
     drawMistCanvas();
   } else {
-    mistCanvas.style.background = '';
     mistCanvas.style.display = 'none';
 
     const fogOpacity = selectMode ? 0.5 : 0.98;
@@ -1474,11 +1479,6 @@ themeBtn.addEventListener('click', () => {
   try { localStorage.setItem(THEME_KEY, nextName); } catch (e) {}
   themeBtn.textContent = `Theme: ${THEMES[nextName].name}`;
   playStartSound();
-  document.getElementById('menu-overlay').classList.remove('open', 'settings-open', 'places-open');
-  setTimeout(() => {
-    document.getElementById('menu-overlay').classList.add('open');
-    document.getElementById('menu-overlay').classList.add('settings-open');
-  }, 350);
 });
 
 loadCities();
@@ -1491,6 +1491,10 @@ syncLayout(true);
 setTimeout(() => syncLayout(true), 50);
 setTimeout(() => syncLayout(true), 300);
 window.addEventListener('resize', () => syncLayout(true));
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => syncLayout(true));
+  window.visualViewport.addEventListener('scroll', () => syncLayout(true));
+}
 window.addEventListener('orientationchange', () => {
   syncLayout(true);
   setTimeout(() => syncLayout(true), 50);
