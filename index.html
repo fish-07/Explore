@@ -231,6 +231,7 @@
 <div id="map"></div>
 <svg id="fog-svg" xmlns="http://www.w3.org/2000/svg"></svg>
 <canvas id="mist-canvas" style="position:fixed;top:0;left:var(--safe-l);right:var(--safe-r);bottom:var(--bar-height,140px);pointer-events:none;z-index:451;display:none;"></canvas>
+<div id="status-bar-overlay"></div>
 <button id="btn-follow">Follow</button>
 <button id="btn-cancel-select">Cancel</button>
 
@@ -1487,6 +1488,8 @@ renderPlacesList();
 updateExportButton();
 updatePlacesButton();
 syncLayout(true);
+setTimeout(() => syncLayout(true), 50);
+setTimeout(() => syncLayout(true), 300);
 window.addEventListener('resize', () => syncLayout(true));
 window.addEventListener('orientationchange', () => {
   syncLayout(true);
