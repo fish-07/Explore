@@ -8,7 +8,6 @@
 <meta name="apple-mobile-web-app-title" content="Hexplore">
 <link rel="apple-touch-icon" href="...">
 <link rel="icon" type="image/png" href="...">
-<meta name="theme-color" content="#101010">
 <title>Hexplore</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -44,7 +43,7 @@
 
   #map, #fog-svg {
     position: fixed;
-    top: var(--safe-t);
+    top: 0;
     left: var(--safe-l);
     right: var(--safe-r);
     bottom: var(--bar-height, 140px);
@@ -218,14 +217,10 @@
 </head>
 <body>
 
-<div id="probe-t" style="position:fixed;top:0;left:0;width:1px;height:env(safe-area-inset-top,0px);visibility:hidden;"></div>
-<div id="probe-b" style="position:fixed;bottom:0;left:0;width:1px;height:env(safe-area-inset-bottom,0px);visibility:hidden;"></div>
-<div id="probe-l" style="position:fixed;top:0;left:0;width:env(safe-area-inset-left,0px);height:1px;visibility:hidden;"></div>
-<div id="probe-r" style="position:fixed;top:0;right:0;width:env(safe-area-inset-right,0px);height:1px;visibility:hidden;"></div>
 
 <div id="map"></div>
 <svg id="fog-svg" xmlns="http://www.w3.org/2000/svg"></svg>
-<canvas id="mist-canvas" style="position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:451;display:none;"></canvas>
+<canvas id="mist-canvas" style="position:fixed;top:0;left:var(--safe-l);right:var(--safe-r);bottom:var(--bar-height,140px);pointer-events:none;z-index:451;display:none;"></canvas>
 <button id="btn-follow">Follow</button>
 <button id="btn-cancel-select">Cancel</button>
 
@@ -376,17 +371,7 @@ function syncBarHeight() {
   document.documentElement.style.setProperty('--bar-height', height + 'px');
 }
 
-function syncSafeArea() {
-  const root = document.documentElement;
-  const top = document.getElementById('probe-t').getBoundingClientRect().height;
-  const bottom = document.getElementById('probe-b').getBoundingClientRect().height;
-  const left = document.getElementById('probe-l').getBoundingClientRect().width;
-  const right = document.getElementById('probe-r').getBoundingClientRect().width;
-  root.style.setProperty('--safe-t', top + 'px');
-  root.style.setProperty('--safe-b', bottom + 'px');
-  root.style.setProperty('--safe-l', left + 'px');
-  root.style.setProperty('--safe-r', right + 'px');
-}
+function syncSafeArea() {}
 
 function syncFogSvgSize() {
   const svg = document.getElementById('fog-svg');
@@ -396,13 +381,11 @@ function syncFogSvgSize() {
 }
 
 function syncMistCanvasCssPosition() {
-  // Cover the entire screen including safe areas so the fog colour
-  // physically fills the notch region in Safari — meta theme-color alone
-  // is not reliable when the SVG fog layer is hidden (mist mode).
-  mistCanvas.style.left   = '0px';
-  mistCanvas.style.top    = '0px';
-  mistCanvas.style.width  = window.innerWidth  + 'px';
-  mistCanvas.style.height = window.innerHeight + 'px';
+  const rect = document.getElementById('map').getBoundingClientRect();
+  mistCanvas.style.left = rect.left + 'px';
+  mistCanvas.style.top = rect.top + 'px';
+  mistCanvas.style.width = rect.width + 'px';
+  mistCanvas.style.height = rect.height + 'px';
 }
 
 function syncMistCanvasSize() {
@@ -568,20 +551,6 @@ try {
   if (saved && THEMES[saved]) currentThemeName = saved;
 } catch (e) {}
 
-// Single source of truth for the theme-color meta tag.
-// Must be called any time the theme OR mist mode changes.
-function syncThemeColor() {
-  const theme = THEMES[currentThemeName] || THEMES.default;
-  // In mist mode the SVG fog is hidden, so Safari sees the map tiles behind
-  // the notch — use the bg colour explicitly so it never flashes white.
-  const color = theme['--bg'];
-  const metaTheme = document.querySelector('meta[name="theme-color"]');
-  if (metaTheme) metaTheme.setAttribute('content', color);
-  // Also keep html/body background in sync so rubber-band overscroll matches.
-  document.documentElement.style.background = color;
-  document.body.style.background = color;
-}
-
 function applyTheme(name) {
   const theme = THEMES[name] || THEMES.default;
   currentThemeName = name;
@@ -592,7 +561,6 @@ function applyTheme(name) {
   if (fogLayer) fogLayer.setAttribute('fill', theme['--bg']);
   if (borderLayer) borderLayer.setAttribute('fill', theme['--bg']);
   rebuildUserLocationIcon(theme.locationColor);
-  syncThemeColor();
   if (mistOn && !selectMode) drawMistCanvas();
 }
 
@@ -1063,11 +1031,13 @@ function drawFog() {
     fogLayer.setAttribute('d', 'M 0 0 Z');
     borderLayer.setAttribute('d', 'M 0 0 Z');
 
+    mistCanvas.style.background = THEMES[currentThemeName]['--bg'];
     mistCanvas.style.display = '';
     syncMistCanvasCssPosition();
     syncMistCanvasSize();
     drawMistCanvas();
   } else {
+    mistCanvas.style.background = '';
     mistCanvas.style.display = 'none';
 
     const fogOpacity = selectMode ? 0.5 : 0.98;
@@ -1459,7 +1429,6 @@ mistBtn.addEventListener('click', () => {
   try { localStorage.setItem(MIST_KEY, String(mistOn)); } catch (e) {}
   mistBtn.textContent = `Mist: ${mistOn ? 'On' : 'Off'}`;
   if (mistOn) playStartSound(); else playStopSound();
-  syncThemeColor();
   redrawFog();
 });
 
