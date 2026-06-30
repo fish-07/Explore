@@ -55,6 +55,16 @@
     overflow: visible;
   }
 
+  #status-bar-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: var(--safe-t);
+    background: var(--bg);
+    opacity: 0.8;
+    pointer-events: none;
+    z-index: 460;
+  }
+
   #bar {
     position: fixed; left: 0; right: 0; bottom: 0;
     background: var(--surface);
@@ -226,6 +236,7 @@
 <div id="map"></div>
 <svg id="fog-svg" xmlns="http://www.w3.org/2000/svg"></svg>
 <canvas id="mist-canvas" style="position:fixed;top:var(--safe-t);left:var(--safe-l);right:var(--safe-r);bottom:var(--bar-height,140px);pointer-events:none;z-index:451;display:none;"></canvas>
+<div id="status-bar-overlay"></div>
 <button id="btn-follow">Follow</button>
 <button id="btn-cancel-select">Cancel</button>
 
@@ -577,8 +588,6 @@ function applyTheme(name) {
   if (borderLayer) borderLayer.setAttribute('fill', theme['--bg']);
   rebuildUserLocationIcon(theme.locationColor);
   if (mistOn && !selectMode) redrawFog();
-  const metaTheme = document.querySelector('meta[name="theme-color"]');
-  if (metaTheme) metaTheme.setAttribute('content', theme['--bg']);
 }
 
 function rebuildUserLocationIcon(color) {
